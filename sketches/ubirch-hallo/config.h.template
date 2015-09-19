@@ -1,0 +1,8 @@
+#ifndef UBIRCH_HALLO_CONFIG_H
+#define UBIRCH_HALLO_CONFIG_H
+
+#define FONA_APN "<apn>"
+#define FONA_USER "<username>"
+#define FONA_PASS "<password>"
+
+#endif //UBIRCH_HALLO_CONFIG_H
