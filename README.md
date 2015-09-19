@@ -2,6 +2,15 @@
 
 ...
 
+## Parts
+
+# Adafruit Trinket Audio
+
+- [Adafruit MicroSD/Audio Breakout](http://adafru.it/1381)
+- [SIM800 cell-network chip](http://www.adafruit.com/products/2637) (onboard ubirch #1) 
+- ...
+
+
 ## Building
 
 The build process is based upon [CMake](http://www.cmake.org/), which plays nice with a number
