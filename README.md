@@ -7,7 +7,7 @@
 # Adafruit Trinket Audio
 
 - [Adafruit MicroSD/Audio Breakout](http://adafru.it/1381)
-- [SIM800 cell-network chip](http://www.adafruit.com/products/2637) (onboard ubirch #1) 
+- [SIM800 cell-network chip](http://adafru.it/fix2468) (similar, onboard ubirch #1) 
 - ...
 
 
