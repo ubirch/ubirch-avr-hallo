@@ -1,4 +1,4 @@
-add_executable_avr(ubirch-hallo main.cpp)
+add_executable_avr(ubirch-hallo main.cpp UbirchSIM800.cpp)
 target_link_libraries(ubirch-hallo SoftwareSerial)
 
 # special external dependencies can be added like this and will be downloaded once
