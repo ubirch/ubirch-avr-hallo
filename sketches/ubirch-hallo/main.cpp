@@ -53,7 +53,7 @@
 SoftwareSerial softwareSerial = SoftwareSerial(FONA_TX, FONA_RX);
 UbirchSIM800 sim800 = UbirchSIM800(FONA_RST, FONA_KEY, FONA_PS);
 
-void blink(uint8_t n, long speed) {
+void blink(uint8_t n, unsigned long speed) {
     digitalWrite(PIN_LED, LOW);
     for (uint8_t i = n * 2; i > 0; i--) {
         Serial.print('.');
