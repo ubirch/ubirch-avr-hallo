@@ -1,5 +1,7 @@
 /**
- * ...
+ * Simple checksum algorithm for the data transfer.
+ *
+ * See https://en.wikipedia.org/wiki/Fletcher%27s_checksum
  *
  * @author Matthias L. Jugel
  *
@@ -19,28 +21,9 @@
  * limitations under the License.
  */
 
-#ifndef UBIRCH_FONA_H
-#define UBIRCH_FONA_H
+#ifndef UBIRCH_CHECKSUM_H
+#define UBIRCH_CHECKSUM_H
 
-#include <Adafruit_FONA.h>
+uint16_t fletcher16(uint8_t const *data, size_t bytes);
 
-class UbirchSIM800 : public Adafruit_FONA {
-
-public:
-    UbirchSIM800(uint8_t rst, uint8_t key, uint8_t ps);
-
-    void shutdown();
-
-    void wakeup();
-
-protected:
-    uint8_t _keypin;
-    uint8_t _pspin;
-    uint16_t _speed;
-
-    SoftwareSerial *_serial;
-
-private:
-};
-
-#endif //UBIRCH_FONA_H
+#endif //UBIRCH_CHECKSUM_H

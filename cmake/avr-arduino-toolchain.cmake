@@ -54,7 +54,7 @@ set(COMPILER_FLAGS "-Os -Wall -Wno-unknown-pragmas -Wextra -MMD -mmcu=${MCU} -DF
 set(CMAKE_C_FLAGS "${COMPILER_FLAGS} -std=gnu99 -mcall-prologues -ffunction-sections -fdata-sections" CACHE STRING "")
 set(CMAKE_CXX_FLAGS "${COMPILER_FLAGS} -fno-exceptions -ffunction-sections -fdata-sections -fno-threadsafe-statics" CACHE STRING "")
 set(CMAKE_ASM_FLAGS "-x assembler-with-cpp ${COMPILER_FLAGS} " CACHE STRING "")
-set(CMAKE_EXE_LINKER_FLAGS "-Wl,--gc-sections ${EXTRA_LIBS}" CACHE STRING "")
+set(CMAKE_EXE_LINKER_FLAGS "-Wl,--relax -Wl,--gc-sections ${EXTRA_LIBS}" CACHE STRING "")
 
 # some definitions that are common
 add_definitions(-DMCU=${MCU})
@@ -83,9 +83,9 @@ function(add_executable_avr NAME)
     endif ()
 
     if (PROGRAMMER STREQUAL "usbasp")
-        set(AVRDUDE_ARGS -c${PROGRAMMER} -p${MCU} -Pusb)
+        set(AVRDUDE_ARGS -v -c${PROGRAMMER} -p${MCU} -Pusb)
     else()
-        set(AVRDUDE_ARGS -c${PROGRAMMER} -p${MCU} -P${SERIAL_DEV} -b${BAUD})
+        set(AVRDUDE_ARGS -v -c${PROGRAMMER} -p${MCU} -P${SERIAL_DEV} -b${BAUD})
     endif ()
 
     # flash the produces binary

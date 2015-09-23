@@ -1,9 +1,8 @@
-add_executable_avr(ubirch-hallo main.cpp UbirchSIM800.cpp)
+add_executable_avr(ubirch-hallo main.cpp error.c checksum.c ubirch_sim800.cpp)
 target_link_libraries(ubirch-hallo SoftwareSerial)
 
 # special external dependencies can be added like this and will be downloaded once
 # arguments: <target> <name> <git url>
-target_sketch_library(ubirch-hallo Adafruit_SleepyDog https://github.com/adafruit/Adafruit_SleepyDog)
 target_sketch_library(ubirch-hallo Adafruit_SD https://github.com/adafruit/SD)
 target_sketch_library(ubirch-hallo Adafruit_FONA_Library https://github.com/adafruit/Adafruit_FONA_Library)
 target_sketch_library(ubirch-hallo Adafruit_VS1053_Library https://github.com/adafruit/Adafruit_VS1053_Library)

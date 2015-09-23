@@ -21,86 +21,61 @@
  * limitations under the License.
   */
 
-#include <Arduino.h>
+#include <Adafruit_VS1053.h>
 #include <SoftwareSerial.h>
+#include "main.h"
+#include "ubirch_sim800.h"
 
-#include <Adafruit_FONA.h>
+extern "C" {
+#include "error.h"
+#include "checksum.h"
+}
 
-#include "config.h"
-#include "UbirchSIM800.h"
 
-#define FONA_RX 2
-#define FONA_TX 3
-#define FONA_RST 4
-#define FONA_KEY 7
-#define FONA_PS 8
+SoftwareSerial sim800Serial = SoftwareSerial(UBIRCH_NO1_SIM800_TX, UBIRCH_NO1_SIM800_RX);
+UbirchSIM800 sim800 = UbirchSIM800(&sim800Serial, UBIRCH_NO1_SIM800_RST, UBIRCH_NO1_SIM800_KEY, UBIRCH_NO1_SIM800_PS);
+Adafruit_VS1053_FilePlayer musicPlayer =
+        Adafruit_VS1053_FilePlayer(BREAKOUT_RESET, BREAKOUT_CS, BREAKOUT_DCS, DREQ, CARDCS);
 
-#define PIN_LED 13
-#define PIN_WATCHDOG 6
-
-// show debug output only in non-release mode
-#ifndef NDEBUG
-#   define DEBUG(s) Serial.println(F(s))
-#else
-#   define DEBUG(s)
-#endif
-
-// set serial port baud if undefined
-#ifndef BAUD
-#   define BAUD 115200
-#endif
-
-SoftwareSerial softwareSerial = SoftwareSerial(FONA_TX, FONA_RX);
-UbirchSIM800 sim800 = UbirchSIM800(FONA_RST, FONA_KEY, FONA_PS);
+#define BUF_SIZE 32
+char buffer[BUF_SIZE];
 
 void blink(uint8_t n, unsigned long speed) {
-    digitalWrite(PIN_LED, LOW);
-    for (uint8_t i = n * 2; i > 0; i--) {
+    digitalWrite(UBIRCH_NO1_PIN_LED, LOW);
+    for (int i = n * 2; i > 0; i--) {
         Serial.print('.');
-        digitalWrite(PIN_LED, i % 2 == 0 ? HIGH : LOW);
+        digitalWrite(UBIRCH_NO1_PIN_LED, i % 2 == 0 ? HIGH : LOW);
         delay(speed);
     }
-    digitalWrite(PIN_LED, LOW);
+    digitalWrite(UBIRCH_NO1_PIN_LED, LOW);
     Serial.println();
 }
 
 void setup() {
+// initially disable the watchdog, it confused people
+    disable_watchdog();
+    pinMode(UBIRCH_NO1_PIN_LED, OUTPUT);
+
+    // configure the initial values for UART and the connection to SIM800
     Serial.begin(BAUD);
-    DEBUG("###");
-
-    pinMode(PIN_LED, OUTPUT);
-    pinMode(PIN_WATCHDOG, OUTPUT);
-
-    blink(10, 500);
-
-    softwareSerial.begin(9600);
+    sim800Serial.begin(9600);
 
     // edit APN settings in config.h
-    sim800.setGPRSNetworkSettings(F(FONA_APN), F(FONA_USER), F(FONA_PASS));
-    sim800.begin(softwareSerial);
+    sim800.setGPRSNetworkSettings(F(SIM800_APN), F(SIM800_USER), F(SIM800_PASS));
 
-/*
+    blink(5, 1000);
+    Serial.println("WELCOME!");
 
-    cli();
+    if (! musicPlayer.begin()) { // initialise the music player
+        Serial.println(F("Couldn't find VS1053, do you have the right pins defined?"));
+        error(HALLO_ERROR_AUDIO);
+    }
 
-    // reset the timer registers
-    TCCR1A = 0;
-    TCCR1B = 0;
-    TCNT1 = 0;
-
-    OCR1A = 16000000UL / 256 - 1;
-    TCCR1B |= _BV(CS01); // prescale 8 selected (still fast enough)
-    TCCR1B |= _BV(WGM12); // CTC mode
-    TIMSK1 |= _BV(OCIE1A); // timer compare interrupt
-
-    sei();
-*/
+    if(!SD.begin(CARDCS)) {  // initialise the SD card
+        Serial.println(F("SDCARD not found"));
+        error(HALLO_ERROR_SDCARD);
+    }
 }
-
-// read what is available from the serial port and send to modem
-//ISR(TIMER1_COMPA_vect) {
-//    while (Serial.available() > 0) sim800h.write((uint8_t) Serial.read());
-//}
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
@@ -109,95 +84,37 @@ void setup() {
 // writes them to the serial port
 void loop() {
 
-    DEBUG("STARTING TEST PROCEDURE");
-    for (int i = 0; i < 5; i++) {
-        sim800.wakeup();
-
-        uint8_t n;
-        do {
-            n = sim800.getNetworkStatus();  // Read the Network / Cellular Status
-            Serial.print(F("Network status "));
-            Serial.print(n);
-            Serial.print(F(": "));
-            switch (n) {
-                case 0:
-                    Serial.println(F("Not registered"));
-                    break;
-                case 1:
-                    Serial.println(F("Registered (home)"));
-                    break;
-                case 2:
-                    Serial.println(F("Not registered (searching)"));
-                    break;
-                case 3:
-                    Serial.println(F("Denied"));
-                    break;
-                case 4:
-                    Serial.println(F("Unknown"));
-                    break;
-                case 5:
-                    Serial.println(F("Registered roaming"));
-                    break;
-                default:
-                    Serial.println(F("???"));
-                    break;
-            }
-            delay(1000);
-        } while (!(n == 1 || n == 5));
-
-        if (sim800.sendCheckReply(F("AT+SAPBR=3,1,\"APN\",\""
-                                            FONA_APN
-                                            "\""), F("OK"), 10000))
-            DEBUG("APN OK");
-        if (sim800.sendCheckReply(F("AT+SAPBR=3,1,\"USER\",\""
-                                            FONA_USER
-                                            "\""), F("OK"), 10000))
-            DEBUG("APN USER OK");
-        if (sim800.sendCheckReply(F("AT+SAPBR=3,1,\"PWD\",\""
-                                            FONA_PASS
-                                            "\""), F("OK"), 10000))
-            DEBUG("APN PASSWORD OK");
-        sim800.sendCheckReply(F("AT&W"), F("OK"));
-
-        sim800.enableGPRS(true);
-        while (sim800.GPRSstate() == 0) {
-            delay(500);
-            Serial.print(".");
-        }
-        Serial.println();
-        Serial.println("GPRS OK");
-
-        // check again that our GPRS connection is valid, try reconnect if not
-        while(!sim800.sendCheckReply(F("AT+SAPBR=1,1"), F("OK"))) {
-            sim800.sendCheckReply(F("AT+SAPBR=0,1"), F("OK"));
-            delay(500);
-        }
-
-        sim800.HTTP_init();
-        uint16_t status, len;
-        char *url = (char *) "http://thingspeak.ubirch.com/update?key=1234567890&batt=50";
-        sim800.HTTP_GET_start(url, &status, &len);
-        sim800.HTTP_GET_end();
-        Serial.print("STATUS: ");
-        Serial.println(status);
-        Serial.print("LENGTH: ");
-        Serial.println(len);
-
-        // this will not work on your device (the specific IP of my SIM is whitelisted on that server!)
-        sim800.sendCheckReply(F("AT+SMTPSRV=mail.jugel.info,25"), F("OK"));
-        sim800.sendCheckReply(F("AT+SMTPFROM=leo@ubirch.com,leo"), F("OK"));
-        sim800.sendCheckReply(F("AT+SMTPRCPT=0,0,trigger@recipe.ifttt.com"), F("OK"));
-        sim800.sendCheckReply(F("AT+SMTPSUB=ubirch no1 here"), F("OK"));
-        sim800.sendCheckReply(F("AT+SMTPBODY=12"), F("DOWNLOAD"));
-        sim800.sendCheckReply(F("Hello Alice!"), F("OK"));
-        sim800.sendCheckReply(F("AT+SMTPSEND"), F("OK"));
-
-        delay(30000);
-        if (i % 2 == 0) sim800.shutdown();
+    File f = SD.open("SHORT.OGG");
+    unsigned long size = f.size();
+    if(size > 0) {
+        Serial.print(f.name());
+        Serial.print(" (");
+        Serial.print(size);
+        Serial.println(")");
     }
 
-    DEBUG("TEST PROCEDURE DONE");
-    while (1);
+    sim800.wakeup();
+    sim800.ensureConnection();
+
+    if(sim800.TCPconnect("api.ubirch.com", 23456)) {
+        Serial.println("Connection established.");
+        int n = 0;
+        while((n = f.readBytes(buffer, BUF_SIZE-1)) != 0) {
+            uint16_t checksum = fletcher16((uint8_t *) buffer, (size_t) n);
+            Serial.print(n); Serial.print(" "); Serial.println(checksum, 16);
+            sim800.TCPsend(buffer, n);
+        };
+        f.close();
+    } else {
+        Serial.println("Connection could not be established.");
+    };
+    sim800.TCPclose();
+
+    delay(30000);
+    sim800.shutdown();
+
+    Serial.println("FINISHED");
+    error(0);
 }
 
 #pragma clang diagnostic pop
