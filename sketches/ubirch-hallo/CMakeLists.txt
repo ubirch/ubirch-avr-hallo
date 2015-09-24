@@ -2,7 +2,7 @@ add_executable_avr(ubirch-hallo
         main.cpp
         ubirch.c
         checksum.c
-        ubirch_sim800.cpp
+        sim800/UbirchSIM800.cpp
         vs1053/Adafruit_VS1053.cpp
         vs1053/Adafruit_VS1053_FilePlayer.cpp
         )

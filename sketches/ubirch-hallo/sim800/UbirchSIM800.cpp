@@ -23,7 +23,7 @@
 
 #include <Arduino.h>
 #include <MinimumSerial.h>
-#include "ubirch_sim800.h"
+#include "UbirchSIM800.h"
 
 extern MinimumSerial debug;
 

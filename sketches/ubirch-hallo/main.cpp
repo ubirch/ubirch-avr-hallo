@@ -24,7 +24,7 @@
 #include <SdFat.h>
 #include <MinimumSerial.h>
 #include "main.h"
-#include "ubirch_sim800.h"
+#include "sim800/UbirchSIM800.h"
 #include "vs1053/Adafruit_VS1053_FilePlayer.h"
 
 MinimumSerial debug;
