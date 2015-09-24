@@ -1,12 +1,6 @@
 #ifndef _UBIRCH_H_
 #define _UBIRCH_H_
 
-// SIM800H settings
-#define UBIRCH_NO1_SIM800_RX    2
-#define UBIRCH_NO1_SIM800_TX    3
-#define UBIRCH_NO1_SIM800_RST   4
-#define UBIRCH_NO1_SIM800_KEY   7
-#define UBIRCH_NO1_SIM800_PS    8
 
 #define UBIRCH_NO1_PIN_LED      13
 #define UBIRCH_NO1_PIN_WATCHDOG 6
@@ -16,5 +10,11 @@
 
 #define enable_watchdog()   pinMode(UBIRCH_NO1_PIN_WATCHDOG, INPUT)
 #define disable_watchdog()  pinMode(UBIRCH_NO1_PIN_WATCHDOG, OUTPUT)
+
+// ERROR CODES
+#define HALLO_ERROR_AUDIO   1
+#define HALLO_ERROR_SDCARD  2
+
+void error(uint8_t error);
 
 #endif // _UBIRCH_H_

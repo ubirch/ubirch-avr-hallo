@@ -1,8 +1,6 @@
 #ifndef _UBIRCH_MAIN_H_
 #define _UBIRCH_MAIN_H_
 
-#include "ubirch.h"
-
 // config.h contains sensitive information, like the
 // cell phone APN, username and password
 #include "config.h"
