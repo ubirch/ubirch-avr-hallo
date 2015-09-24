@@ -19,14 +19,27 @@
  * limitations under the License.
  */
 
-#ifndef UBIRCH_ERROR_H
-#define UBIRCH_ERROR_H
-
+#include <Arduino.h>
 #include "ubirch.h"
 
-#define HALLO_ERROR_AUDIO   1
-#define HALLO_ERROR_SDCARD  2
 
-void error(uint8_t error);
+// === ERROR STOP ==
+inline void s() {
+    enable_led();
+    delay(500);
+    disable_led();
+    delay(500);
+}
 
-#endif //UBIRCH_ERROR_H
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-noreturn"
+
+// send blink signals for error codes and never return
+void error(uint8_t code) {
+    for (;;) {
+        for(uint8_t i = 0; i < code; i++) s();
+        delay(2000);
+    }
+}
+
+#pragma clang diagnostic pop

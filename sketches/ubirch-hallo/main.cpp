@@ -21,60 +21,119 @@
  * limitations under the License.
   */
 
-#include <Adafruit_VS1053.h>
-#include <SoftwareSerial.h>
+#include <SdFat.h>
+#include <MinimumSerial.h>
 #include "main.h"
 #include "ubirch_sim800.h"
+#include "vs1053/Adafruit_VS1053_FilePlayer.h"
+
+MinimumSerial debug;
+
+#define PRINT(s) debug.print(F(s))
+#define PRINTLN(s) debug.println(F(s))
+#define DEBUG(s) debug.print(s)
+#define DEBUGLN(s) debug.println(s)
+
+extern SdFat SD;
 
 extern "C" {
-#include "error.h"
+#include "ubirch.h"
 #include "checksum.h"
 }
 
-
-SoftwareSerial sim800Serial = SoftwareSerial(UBIRCH_NO1_SIM800_TX, UBIRCH_NO1_SIM800_RX);
-UbirchSIM800 sim800 = UbirchSIM800(&sim800Serial, UBIRCH_NO1_SIM800_RST, UBIRCH_NO1_SIM800_KEY, UBIRCH_NO1_SIM800_PS);
+UbirchSIM800 sim800 = UbirchSIM800();
 Adafruit_VS1053_FilePlayer musicPlayer =
         Adafruit_VS1053_FilePlayer(BREAKOUT_RESET, BREAKOUT_CS, BREAKOUT_DCS, DREQ, CARDCS);
-
-#define BUF_SIZE 32
-char buffer[BUF_SIZE];
 
 void blink(uint8_t n, unsigned long speed) {
     digitalWrite(UBIRCH_NO1_PIN_LED, LOW);
     for (int i = n * 2; i > 0; i--) {
-        Serial.print('.');
+        PRINT(".");
         digitalWrite(UBIRCH_NO1_PIN_LED, i % 2 == 0 ? HIGH : LOW);
         delay(speed);
     }
     digitalWrite(UBIRCH_NO1_PIN_LED, LOW);
-    Serial.println();
+    PRINTLN("");
 }
 
+extern unsigned int __heap_start;
+extern void *__brkval;
+
+
 void setup() {
-// initially disable the watchdog, it confused people
+    // configure the initial values for UART and the connection to SIM800
+    Serial.begin(BAUD);
+
+    // initially disable the watchdog, it confused people
     disable_watchdog();
     pinMode(UBIRCH_NO1_PIN_LED, OUTPUT);
 
-    // configure the initial values for UART and the connection to SIM800
-    Serial.begin(BAUD);
-    sim800Serial.begin(9600);
+    blink(3, 1000);
 
-    // edit APN settings in config.h
-    sim800.setGPRSNetworkSettings(F(SIM800_APN), F(SIM800_USER), F(SIM800_PASS));
-
-    blink(5, 1000);
-    Serial.println("WELCOME!");
-
-    if (! musicPlayer.begin()) { // initialise the music player
-        Serial.println(F("Couldn't find VS1053, do you have the right pins defined?"));
+    if (!musicPlayer.begin()) { // initialise the music player
+        PRINTLN("Couldn't find VS1053, do you have the right pins defined?");
         error(HALLO_ERROR_AUDIO);
     }
+    PRINTLN("Initialized VS1053");
+    musicPlayer.useInterrupt(VS1053_FILEPLAYER_TIMER0_INT);
 
-    if(!SD.begin(CARDCS)) {  // initialise the SD card
-        Serial.println(F("SDCARD not found"));
+    if (!SD.begin(CARDCS)) {  // initialise the SD card
+        PRINTLN("SDCARD not found");
         error(HALLO_ERROR_SDCARD);
     }
+    PRINTLN("Initialized SD-Card");
+
+    static File f = SD.open("test.mp3", O_RDWR|O_CREAT|O_TRUNC);
+    PRINTLN("Created file test.mp3");
+
+    PRINTLN("Starting download test...");
+
+    PRINT("Free memory = ");
+    DEBUGLN(SP - (__brkval ? (uint16_t) __brkval : (uint16_t) &__heap_start));
+
+    PRINTLN("Initializing SIM800");
+    sim800.reset();
+    sim800.setAPN(F(SIM800_APN), F(SIM800_USER), F(SIM800_PASS));
+
+    PRINTLN("SIM800 wakeup...");
+    if (!sim800.wakeup()) error(1);
+    PRINTLN("SIM800 waiting for network registration...");
+    if (!sim800.registerNetwork()) error(2);
+    PRINTLN("SIM800 enabling GPRS...");
+    if (!sim800.enableGPRS()) error(3);
+
+    PRINTLN("Allocating buffer & downloading data...");
+    static size_t length = 0;
+    uint16_t status = sim800.GET("http://api.ubirch.com/rp15/app/test.mp3", length);
+    DEBUGLN(status);
+    DEBUGLN(length);
+
+    if(length > 0) {
+#define BUFSIZE 512
+        static char *buffer = (char *) malloc(BUFSIZE);
+        buffer[BUFSIZE] = 0;
+        uint16_t pos = 0, r;
+        do {
+            r = sim800.GETReadPayload(buffer, pos, BUFSIZE);
+            f.write(buffer, r);
+            if((pos % 10*1024) == 0) { DEBUG(pos); PRINTLN(" "); } else PRINT(".");
+            pos += r;
+        } while (pos < length);
+
+        free(buffer);
+    }
+    f.close();
+
+    PRINTLN("");
+    PRINTLN("Done.");
+
+    sim800.shutdown();
+
+    PRINTLN("WELCOME!");
+
+    PRINT("Free memory = ");
+    DEBUGLN(SP - (__brkval ? (uint16_t) __brkval : (uint16_t) &__heap_start));
+
 }
 
 #pragma clang diagnostic push
@@ -83,38 +142,11 @@ void setup() {
 // the main loop just reads the responses from the modem and
 // writes them to the serial port
 void loop() {
-
-    File f = SD.open("SHORT.OGG");
-    unsigned long size = f.size();
-    if(size > 0) {
-        Serial.print(f.name());
-        Serial.print(" (");
-        Serial.print(size);
-        Serial.println(")");
-    }
-
-    sim800.wakeup();
-    sim800.ensureConnection();
-
-    if(sim800.TCPconnect("api.ubirch.com", 23456)) {
-        Serial.println("Connection established.");
-        int n = 0;
-        while((n = f.readBytes(buffer, BUF_SIZE-1)) != 0) {
-            uint16_t checksum = fletcher16((uint8_t *) buffer, (size_t) n);
-            Serial.print(n); Serial.print(" "); Serial.println(checksum, 16);
-            sim800.TCPsend(buffer, n);
-        };
-        f.close();
-    } else {
-        Serial.println("Connection could not be established.");
-    };
-    sim800.TCPclose();
-
-    delay(30000);
-    sim800.shutdown();
-
-    Serial.println("FINISHED");
-    error(0);
+    musicPlayer.setVolume(1, 1);
+    PRINTLN("Playing downloaded file...");
+    musicPlayer.playFullFile("test.mp3");
+//    PRINTLN("Playing music ...");
+//    musicPlayer.playFullFile("TRACK001.MP3");
 }
 
 #pragma clang diagnostic pop
