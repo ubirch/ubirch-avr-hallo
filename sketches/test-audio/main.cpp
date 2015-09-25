@@ -26,7 +26,7 @@
 #define PIN_LED 13
 #define PIN_WATCHDOG 6
 
-// show debug output only in non-release mode
+// show minimumSerial output only in non-release mode
 #ifndef NDEBUG
 #   define D_println(s) Serial.println(F(s))
 #else

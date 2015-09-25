@@ -59,19 +59,27 @@ protected:
 
     unsigned int readline(char *buffer, size_t max, uint16_t timeout);
 
+    // eat input until no more is available, basically sucks up echos and left over status messages
     void eatEcho();
 
+    // expect the string to be sent
     bool expect(const __FlashStringHelper *expected, uint16_t timeout);
 
+    // send a command and expect it to return a certain string
     bool expect(const __FlashStringHelper *cmd, const __FlashStringHelper *expected,
                 uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
 
+    // expect OK
     bool expect_OK(uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
 
+    // send command and expect OK
     bool expect_OK(const __FlashStringHelper *cmd, uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
 
-    bool expect_scan(const __FlashStringHelper *pattern, void *ref, uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
+    // expect a certain pattern with one value to be returned, ref is a pointer to the value
+    bool expect_scan(const __FlashStringHelper *pattern, void *ref,
+                     uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
 
+    // expect a certain pattern with two values to be returned, ref, ref1 are pointer to the values
     bool expect_scan(const __FlashStringHelper *pattern, void *ref, void *ref1,
                      uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
 
@@ -80,25 +88,34 @@ public:
 
     void test();
 
+    // stores apn, username and password for the time beeing
     void setAPN(const __FlashStringHelper *apn, const __FlashStringHelper *user, const __FlashStringHelper *pass);
 
+    // resets the SIM chip (if the chip is already awake)
     bool reset();
 
+    // shut down the SIM chip to reduce power usage
     bool shutdown();
 
+    // wake up the chip, checks if it's already awake, resets the chip (see #reset())
     bool wakeup();
 
-    bool registerNetwork();
+    // wait for network registration
+    bool registerNetwork(uint16_t timeout = 30000);
 
+    // enable GPRS
     bool enableGPRS(uint16_t timeout = 30000);
 
+    // disable GPRS
     bool disableGPRS();
 
     bool connect(char *address, uint16_t port, uint16_t timeout = 30000);
 
-    uint16_t GET(char *url, size_t& response);
+    // HTTP GET request, returns the status and puts length in the referenced variable
+    uint16_t GET(char *url, uint32_t &length);
 
-    uint16_t GETReadPayload(char *buffer, uint16_t start, uint16_t length);
+    // read the payload after a GET request, returns the amount read, call multiple times to read whole
+    uint16_t GETReadPayload(char *buffer, uint32_t start, uint16_t length);
 };
 
 #endif //UBIRCH_FONA_H

@@ -27,22 +27,23 @@
 #include "sim800/UbirchSIM800.h"
 #include "vs1053/Adafruit_VS1053_FilePlayer.h"
 
-MinimumSerial debug;
+#define BUFSIZE 512
 
-#define PRINT(s) debug.print(F(s))
-#define PRINTLN(s) debug.println(F(s))
-#define DEBUG(s) debug.print(s)
-#define DEBUGLN(s) debug.println(s)
+MinimumSerial minimumSerial;
+
+#define PRINT(s) minimumSerial.print(F(s))
+#define PRINTLN(s) minimumSerial.println(F(s))
+#define DEBUG(s) minimumSerial.print(s)
+#define DEBUGLN(s) minimumSerial.println(s)
 
 extern SdFat SD;
 
 extern "C" {
-#include "ubirch.h"
 #include "checksum.h"
 }
 
-UbirchSIM800 sim800 = UbirchSIM800();
-Adafruit_VS1053_FilePlayer musicPlayer =
+static UbirchSIM800 sim800 = UbirchSIM800();
+static Adafruit_VS1053_FilePlayer musicPlayer =
         Adafruit_VS1053_FilePlayer(BREAKOUT_RESET, BREAKOUT_CS, BREAKOUT_DCS, DREQ, CARDCS);
 
 void blink(uint8_t n, unsigned long speed) {
@@ -60,31 +61,44 @@ extern unsigned int __heap_start;
 extern void *__brkval;
 
 
+void haltOK();
+
+// send blink signals for error codes and never return
+void haltError(uint8_t code);
+
+void createTestFile();
+
 void setup() {
     // configure the initial values for UART and the connection to SIM800
     Serial.begin(BAUD);
 
     // initially disable the watchdog, it confused people
     disable_watchdog();
-    pinMode(UBIRCH_NO1_PIN_LED, OUTPUT);
 
     blink(3, 1000);
 
-    if (!musicPlayer.begin()) { // initialise the music player
-        PRINTLN("Couldn't find VS1053, do you have the right pins defined?");
-        error(HALLO_ERROR_AUDIO);
-    }
-    PRINTLN("Initialized VS1053");
-    musicPlayer.useInterrupt(VS1053_FILEPLAYER_TIMER0_INT);
-
     if (!SD.begin(CARDCS)) {  // initialise the SD card
         PRINTLN("SDCARD not found");
-        error(HALLO_ERROR_SDCARD);
+        haltError(HALLO_ERROR_SDCARD);
     }
     PRINTLN("Initialized SD-Card");
 
-    static File f = SD.open("test.mp3", O_RDWR|O_CREAT|O_TRUNC);
-    PRINTLN("Created file test.mp3");
+    if (!musicPlayer.begin()) { // initialise the music player
+        PRINTLN("Couldn't find VS1053, do you have the right pins defined?");
+        haltError(HALLO_ERROR_AUDIO);
+    }
+    musicPlayer.useInterrupt(VS1053_FILEPLAYER_TIMER0_INT);
+    PRINTLN("Initialized VS1053");
+
+    musicPlayer.setVolume(1, 1);
+
+    createTestFile();
+
+    haltOK();
+
+    if (SD.remove("test.ogg")) PRINTLN("Deleted download file...");;
+    static File f = SD.open("test.ogg", O_WRONLY | O_CREAT | O_TRUNC);
+    PRINTLN("Created download file ...");
 
     PRINTLN("Starting download test...");
 
@@ -96,43 +110,57 @@ void setup() {
     sim800.setAPN(F(SIM800_APN), F(SIM800_USER), F(SIM800_PASS));
 
     PRINTLN("SIM800 wakeup...");
-    if (!sim800.wakeup()) error(1);
+    if (!sim800.wakeup()) haltError(1);
     PRINTLN("SIM800 waiting for network registration...");
-    if (!sim800.registerNetwork()) error(2);
+    while (!sim800.registerNetwork()) {
+        sim800.shutdown();
+        sim800.wakeup();
+    }
     PRINTLN("SIM800 enabling GPRS...");
-    if (!sim800.enableGPRS()) error(3);
+    if (!sim800.enableGPRS()) haltError(3);
 
     PRINTLN("Allocating buffer & downloading data...");
-    static size_t length = 0;
-    uint16_t status = sim800.GET("http://api.ubirch.com/rp15/app/test.mp3", length);
+    static uint32_t length = 0;
+    uint16_t status = sim800.GET("http://api.ubirch.com/rp15/app/test2.ogg", length);
     DEBUGLN(status);
     DEBUGLN(length);
 
-    if(length > 0) {
-#define BUFSIZE 512
+//    PRINTLN("Press enter to download...");
+//    while(minimumSerial.read() == -1);
+
+    if (length > 0) {
         static char *buffer = (char *) malloc(BUFSIZE);
-        buffer[BUFSIZE] = 0;
-        uint16_t pos = 0, r;
+        uint32_t pos = 0, r;
         do {
             r = sim800.GETReadPayload(buffer, pos, BUFSIZE);
             f.write(buffer, r);
-            if((pos % 10*1024) == 0) { DEBUG(pos); PRINTLN(" "); } else PRINT(".");
+            if ((pos % 10 * 1024) == 0) {
+                if (f.sync()) PRINT("! ");
+                DEBUG(pos);
+                PRINTLN("");
+            } else
+                PRINT(".");
             pos += r;
         } while (pos < length);
 
         free(buffer);
     }
-    f.close();
+    if (f.close()) PRINTLN("Download file closed");
 
     PRINTLN("");
+    PRINT("Free memory = ");
+    DEBUGLN(SP - (__brkval ? (uint16_t) __brkval : (uint16_t) &__heap_start));
+
     PRINTLN("Done.");
+
+    musicPlayer.setVolume(1, 1);
+    PRINTLN("Playing downloaded file...");
+    musicPlayer.startPlayingFile("test.ogg");
 
     sim800.shutdown();
 
-    PRINTLN("WELCOME!");
+    PRINTLN("THANK YOU!");
 
-    PRINT("Free memory = ");
-    DEBUGLN(SP - (__brkval ? (uint16_t) __brkval : (uint16_t) &__heap_start));
 
 }
 
@@ -142,11 +170,61 @@ void setup() {
 // the main loop just reads the responses from the modem and
 // writes them to the serial port
 void loop() {
-    musicPlayer.setVolume(1, 1);
-    PRINTLN("Playing downloaded file...");
-    musicPlayer.playFullFile("test.mp3");
-//    PRINTLN("Playing music ...");
-//    musicPlayer.playFullFile("TRACK001.MP3");
+    haltOK();
+}
+
+
+void createTestFile() {
+    PRINTLN("CREATING TEST FILE");
+    File testFile = SD.open("test.txt", O_WRONLY | O_CREAT | O_TRUNC);
+    char buffer[BUFSIZE] = "";
+    for (int line = 0; line < 300; line++) {
+        for (int i = 0; i < BUFSIZE; i++) buffer[i] = 0;
+        sprintf(buffer, "%06u ", line);
+        for (uint16_t c = 7; c < BUFSIZE; c++) {
+            buffer[c] = (char) (c & 0x000f) + '0';
+        }
+        DEBUG(buffer);
+        testFile.write(buffer, BUFSIZE);
+        for (uint16_t c = 0; c < BUFSIZE - 1; c++) {
+            buffer[c] = (char) (c & 0x000f) + '0';
+        }
+        buffer[BUFSIZE - 1] = '\n';
+        DEBUGLN(buffer);
+        testFile.write(buffer, BUFSIZE);
+    }
+    free(buffer);
+    testFile.close();
+    PRINTLN("CREATED TEST FILE");
+    DEBUG(testFile.size()); PRINTLN(" bytes");
+}
+
+// send blink signals for error codes and never return
+void haltError(uint8_t code) {
+    pinMode(UBIRCH_NO1_PIN_LED, OUTPUT);
+    for (; ;) {
+        for (uint8_t i = 0; i < code; i++) {
+            enable_led();
+            delay(500);
+            disable_led();
+            delay(500);
+            PRINT("ERROR: ");
+            DEBUGLN(code);
+        }
+        delay(5000);
+    }
+}
+
+
+void haltOK() {
+    pinMode(UBIRCH_NO1_PIN_LED, OUTPUT);
+    for (; ;) {
+        enable_led();
+        delay(1000);
+        disable_led();
+        delay(1000);
+        PRINT("+");
+    }
 }
 
 #pragma clang diagnostic pop
