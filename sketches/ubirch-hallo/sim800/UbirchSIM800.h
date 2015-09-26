@@ -26,11 +26,12 @@
 #include <stdint.h>
 #include <SoftwareSerial.h>
 
-#define SIM800_RX    2
-#define SIM800_TX    3
-#define SIM800_RST   4
-#define SIM800_KEY   7
-#define SIM800_PS    8
+#define SIM800_BAUD 57600
+#define SIM800_RX   2
+#define SIM800_TX   3
+#define SIM800_RST  4
+#define SIM800_KEY  7
+#define SIM800_PS   8
 
 #define DEFAULT_SERIAL_TIMEOUT 1000
 
@@ -53,17 +54,20 @@ private:
 
 protected:
     SoftwareSerial _serial = SoftwareSerial(SIM800_TX, SIM800_RX);
+    const uint32_t _serialSpeed = SIM800_BAUD;
     const __FlashStringHelper *_apn;
     const __FlashStringHelper *_user;
     const __FlashStringHelper *_pass;
 
-    unsigned int readline(char *buffer, size_t max, uint16_t timeout);
+    size_t read(char *buffer, size_t length);
+
+    size_t readline(char *buffer, size_t max, uint16_t timeout);
 
     // eat input until no more is available, basically sucks up echos and left over status messages
     void eatEcho();
 
     // expect the string to be sent
-    bool expect(const __FlashStringHelper *expected, uint16_t timeout);
+    bool expect(const __FlashStringHelper *expected, uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
 
     // send a command and expect it to return a certain string
     bool expect(const __FlashStringHelper *cmd, const __FlashStringHelper *expected,
@@ -83,6 +87,9 @@ protected:
     bool expect_scan(const __FlashStringHelper *pattern, void *ref, void *ref1,
                      uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
 
+    bool expect_scan(const __FlashStringHelper *pattern, void *ref, void *ref1, void *ref2,
+                     uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
+
 public:
     UbirchSIM800();
 
@@ -91,8 +98,10 @@ public:
     // stores apn, username and password for the time beeing
     void setAPN(const __FlashStringHelper *apn, const __FlashStringHelper *user, const __FlashStringHelper *pass);
 
-    // resets the SIM chip (if the chip is already awake)
     bool reset();
+
+    // resets the SIM chip (if the chip is already awake)
+    bool reset(uint32_t serialSpeed);
 
     // shut down the SIM chip to reduce power usage
     bool shutdown();
@@ -109,13 +118,22 @@ public:
     // disable GPRS
     bool disableGPRS();
 
-    bool connect(char *address, uint16_t port, uint16_t timeout = 30000);
+    bool connect(const char *address, uint16_t port, uint16_t timeout = 30000);
+
+    bool disconnect();
+
+    bool send(char *buffer, size_t size, size_t &accepted);
 
     // HTTP GET request, returns the status and puts length in the referenced variable
-    uint16_t GET(char *url, uint32_t &length);
+    uint16_t GET(const char *url, uint32_t &length);
 
     // read the payload after a GET request, returns the amount read, call multiple times to read whole
-    uint16_t GETReadPayload(char *buffer, uint32_t start, uint16_t length);
+    size_t GETReadPayload(char *buffer, uint32_t start, size_t length);
+
+    bool status();
+
+    size_t receive(char *buffer, size_t size);
+
 };
 
 #endif //UBIRCH_FONA_H
