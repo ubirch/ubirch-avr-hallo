@@ -27,7 +27,7 @@
 #include "sim800/UbirchSIM800.h"
 #include "vs1053/Adafruit_VS1053_FilePlayer.h"
 
-#define BUFSIZE 512
+#define BUFSIZE 64
 
 MinimumSerial minimumSerial;
 
@@ -38,12 +38,8 @@ MinimumSerial minimumSerial;
 
 extern SdFat SD;
 
-extern "C" {
-#include "checksum.h"
-}
-
-static UbirchSIM800 sim800 = UbirchSIM800();
-static Adafruit_VS1053_FilePlayer musicPlayer =
+UbirchSIM800 sim800 = UbirchSIM800();
+Adafruit_VS1053_FilePlayer vs1053 =
         Adafruit_VS1053_FilePlayer(BREAKOUT_RESET, BREAKOUT_CS, BREAKOUT_DCS, DREQ, CARDCS);
 
 void blink(uint8_t n, unsigned long speed) {
@@ -60,13 +56,14 @@ void blink(uint8_t n, unsigned long speed) {
 extern unsigned int __heap_start;
 extern void *__brkval;
 
-
 void haltOK();
 
 // send blink signals for error codes and never return
 void haltError(uint8_t code);
 
 void createTestFile();
+
+void freeMem();
 
 void setup() {
     // configure the initial values for UART and the connection to SIM800
@@ -77,91 +74,121 @@ void setup() {
 
     blink(3, 1000);
 
-    if (!SD.begin(CARDCS)) {  // initialise the SD card
+    // == SETUP ===============================================
+    if (!SD.begin(CARDCS)) {
         PRINTLN("SDCARD not found");
-        haltError(HALLO_ERROR_SDCARD);
+        haltError(0);
     }
-    PRINTLN("Initialized SD-Card");
+    createTestFile();
+    PRINTLN("SDCARD initialized");
 
-    if (!musicPlayer.begin()) { // initialise the music player
-        PRINTLN("Couldn't find VS1053, do you have the right pins defined?");
-        haltError(HALLO_ERROR_AUDIO);
-    }
-    musicPlayer.useInterrupt(VS1053_FILEPLAYER_TIMER0_INT);
-    PRINTLN("Initialized VS1053");
-
-    musicPlayer.setVolume(1, 1);
-
-//    createTestFile();
-//
-//    haltOK();
-
-    if (SD.remove("test.ogg")) PRINTLN("Deleted download file...");;
-    static File f = SD.open("test.ogg", O_WRONLY | O_CREAT | O_TRUNC);
-    PRINTLN("Created download file ...");
-
-    PRINTLN("Starting download test...");
-
-    PRINT("Free memory = ");
-    DEBUGLN(SP - (__brkval ? (uint16_t) __brkval : (uint16_t) &__heap_start));
-
-    PRINTLN("Initializing SIM800");
-    sim800.reset();
+    PRINTLN("SIM800 wakeup");
+    if (!sim800.wakeup()) haltError(1);
     sim800.setAPN(F(SIM800_APN), F(SIM800_USER), F(SIM800_PASS));
 
-    PRINTLN("SIM800 wakeup...");
-    if (!sim800.wakeup()) haltError(1);
-    PRINTLN("SIM800 waiting for network registration...");
+    PRINTLN("SIM800 waiting for network registration");
     while (!sim800.registerNetwork()) {
         sim800.shutdown();
         sim800.wakeup();
     }
-    PRINTLN("SIM800 enabling GPRS...");
+    PRINTLN("SIM800 enabling GPRS");
     if (!sim800.enableGPRS()) haltError(3);
+    PRINTLN("SIM800 initialized");
 
-    PRINTLN("Allocating buffer & downloading data...");
-    static uint32_t length = 0;
-    uint16_t status = sim800.GET("http://api.ubirch.com/rp15/app/test2.ogg", length);
+}
+
+inline bool sendFile(const char *address, uint16_t port, const char *fname) {
+    if (!sim800.connect(address, port)) {
+        sim800.shutdown();
+        haltError(10);
+    }
+
+    static char *buffer = (char *) malloc(BUFSIZE);
+
+    int r = 0;
+    static uint32_t n = 0;
+
+    SD.cacheClear();
+    File file = SD.open(fname, O_RDONLY);
+    if (!file) {
+        PRINT("could not open file: ");
+        DEBUGLN(fname);
+        return false;
+    }
+    while ((r = file.read(buffer, BUFSIZE)) > 0) {
+        DEBUG(n);
+        PRINT(" ");
+        if (r == -1) {
+            PRINTLN("ERROR READING");
+            return false;
+        } else {
+            if (r < BUFSIZE) PRINTLN("EOF");
+            static size_t accepted = 0;
+            if (!sim800.send(buffer, (size_t) r, accepted)) {
+                PRINT("ERROR: ");
+                DEBUG(r);
+                PRINT(" ");
+                DEBUGLN(accepted);
+            } else {
+                PRINTLN("OK");
+            }
+            n += r;
+        }
+    }
+    file.close();
+    free(buffer);
+
+    return sim800.disconnect();
+}
+
+inline bool receiveHttp(const char *fname, const char *url) {
+    SD.cacheClear();
+
+    static char *buffer = (char *) malloc(BUFSIZE);
+
+    static File file = SD.open(fname, O_WRONLY | O_CREAT | O_TRUNC);
+
+    char date[8];
+    char time[8];
+    char timezone[3];
+
+    if (sim800.time(date, time, timezone)) {
+        DEBUGLN(time);
+    };
+
+
+    uint32_t length = 0;
+    uint16_t status = sim800.GET(url, length);
+    PRINT("HTTP STATUS: ");
     DEBUGLN(status);
+    PRINT("FILE LENGTH: ");
     DEBUGLN(length);
 
-//    PRINTLN("Press enter to download...");
-//    while(minimumSerial.read() == -1);
 
     if (length > 0) {
-        static char *buffer = (char *) malloc(BUFSIZE);
         uint32_t pos = 0, r;
         do {
             r = sim800.GETReadPayload(buffer, pos, BUFSIZE);
-            f.write(buffer, r);
-            if ((pos % 10 * 1024) == 0) {
-                if (f.sync()) PRINT("! ");
+            if ((pos % 10240) == 0) {
                 DEBUG(pos);
                 PRINTLN("");
             } else
-                PRINT(".");
+                if(pos % (1024) == 0) PRINT(".");
             pos += r;
+            file.write(buffer, r);
         } while (pos < length);
 
-        free(buffer);
     }
-    if (f.close()) PRINTLN("Download file closed");
+    free(buffer);
+    if (sim800.time(date, time, timezone)) {
+        DEBUG(time);
+    };
+    return file.close() && length > 0;
+}
 
-    PRINTLN("");
+void freeMem() {
     PRINT("Free memory = ");
     DEBUGLN(SP - (__brkval ? (uint16_t) __brkval : (uint16_t) &__heap_start));
-
-    PRINTLN("Done.");
-
-    musicPlayer.setVolume(1, 1);
-    PRINTLN("Playing downloaded file...");
-    musicPlayer.startPlayingFile("test.ogg");
-
-    sim800.shutdown();
-
-    PRINTLN("THANK YOU!");
-
-
 }
 
 #pragma clang diagnostic push
@@ -169,38 +196,82 @@ void setup() {
 
 // the main loop just reads the responses from the modem and
 // writes them to the serial port
+static int c = 'd';
+
 void loop() {
-    haltOK();
+//    freeMem();
+//    PRINTLN("MENU [u - upload, d - download, p - play file]");
+//    while ((c = minimumSerial.read()) == -1);
+//    while (minimumSerial.read() != -1);
+
+    switch ((char) c) {
+        case -1:
+            break;
+        case 'u':
+            PRINTLN("sending file");
+            if (sendFile("api.ubirch.com", 23456, "TEST.TXT")) {
+                PRINTLN("SUCCESS");
+            } else {
+                PRINTLN("FAILED");
+            }
+            break;
+        case 'd':
+            PRINTLN("receiving file");
+            if (receiveHttp("TEST.OGG", "http://api.ubirch.com/rp15/app/test2.ogg")) {
+                PRINTLN("SUCCESS");
+            } else {
+                PRINTLN("FAILED");
+            }
+            c = 'p';
+            break;
+        case 'p':
+            if (!vs1053.begin()) {
+                PRINTLN("VS1053 not found");
+                haltError(1);
+            }
+            vs1053.useInterrupt(VS1053_FILEPLAYER_TIMER0_INT);
+            PRINTLN("VS1053 initialized ");
+
+            vs1053.setVolume(1, 1);
+            PRINTLN("playing downloaded file");
+            vs1053.playFullFile("TEST.OGG");
+            c = 'x';
+            break;
+        default:
+            break;
+
+    }
 }
 
-
 void createTestFile() {
+    if (SD.exists("TEST.TXT")) return;
+
+    File testFile = SD.open("TEST.TXT", O_CREAT | O_WRONLY | O_TRUNC);
+
     PRINTLN("CREATING TEST FILE");
-    File testFile = SD.open("test.txt", O_WRONLY | O_CREAT | O_TRUNC);
-    char buffer[BUFSIZE] = "";
-    for (int line = 0; line < 300; line++) {
-        for (int i = 0; i < BUFSIZE; i++) buffer[i] = 0;
-        sprintf(buffer, "%06u ", line);
-        for (uint16_t c = 7; c < BUFSIZE; c++) {
-            buffer[c] = (char) (c & 0x000f) + '0';
+    char number[80];
+    for (int line = 0; line < 3187; line++) {
+        sprintf(number, "%06u ", line);
+        testFile.write(number, 7);
+        DEBUG(number);
+        for (uint16_t c = 0; c < 73; c++) {
+            uint8_t b = (uint8_t) ('0' + (c % 10));
+            testFile.print((char) b);
+            DEBUG((char) b);
         }
-        DEBUG(buffer);
-        testFile.write(buffer, BUFSIZE);
-        for (uint16_t c = 0; c < BUFSIZE - 1; c++) {
-            buffer[c] = (char) (c & 0x000f) + '0';
-        }
-        buffer[BUFSIZE - 1] = '\n';
-        DEBUGLN(buffer);
-        testFile.write(buffer, BUFSIZE);
+        PRINTLN("");
+        testFile.println();
     }
-    free(buffer);
     testFile.close();
     PRINTLN("CREATED TEST FILE");
-    DEBUG(testFile.size()); PRINTLN(" bytes");
+    DEBUG(testFile.size());
+    PRINTLN(" bytes");
 }
 
 // send blink signals for error codes and never return
 void haltError(uint8_t code) {
+    PRINT("ERROR: ");
+    DEBUGLN(code);
     pinMode(UBIRCH_NO1_PIN_LED, OUTPUT);
     for (; ;) {
         for (uint8_t i = 0; i < code; i++) {
@@ -208,9 +279,8 @@ void haltError(uint8_t code) {
             delay(500);
             disable_led();
             delay(500);
-            PRINT("ERROR: ");
-            DEBUGLN(code);
         }
+        PRINT("E");
         delay(5000);
     }
 }
