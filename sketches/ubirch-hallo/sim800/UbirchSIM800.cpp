@@ -27,7 +27,7 @@
 
 extern MinimumSerial minimumSerial;
 
-#define NDEBUG
+//#define NDEBUG
 
 // show minimumSerial output only in non-release mode
 #ifndef NDEBUG
@@ -275,7 +275,7 @@ uint16_t UbirchSIM800::HTTP_get(const char *url, uint32_t &length, Stream &strea
         if ((pos % 10240) == 0) {
             DEBUG(pos);
             PRINTLN("");
-        } else if (pos % (1024) == 0) PRINT(".");
+        } else if (pos % (1024) == 0) { PRINT("."); }
         pos += r;
         stream.write(buffer, r);
     } while (pos < length);
@@ -362,13 +362,13 @@ uint16_t UbirchSIM800::HTTP_post(const char *url, uint32_t length, Stream &strea
 //            PRINT(" ");
 //            DEBUGLN(accepted);
 //        } else
-#ifdef NDEBUG
+#ifndef NDEBUG
         if ((pos % 10240) == 0) {
             DEBUG(pos);
             PRINT(" ");
             DEBUG(r);
             PRINTLN("");
-        } else if (pos % (1024) == 0) PRINT(".");
+        } else if (pos % (1024) == 0) { PRINT("."); }
 #endif
         pos += r;
     } while(r == 64);

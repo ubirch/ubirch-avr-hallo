@@ -7,7 +7,6 @@ add_executable_avr(ubirch-hallo
         )
 target_link_libraries(ubirch-hallo SoftwareSerial)
 target_sketch_library(ubirch-hallo SdFat "locally checked in")
-target_sketch_library(ubirch-hallo Adafruit_FONA_Library https://github.com/adafruit/Adafruit_FONA_Library)
 
 # copy the config.h.template to config.h in case it is not there; it is ignored by .git!
 if (NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/config.h")
