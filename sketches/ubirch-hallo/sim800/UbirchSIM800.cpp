@@ -27,7 +27,7 @@
 
 extern MinimumSerial minimumSerial;
 
-//#define NDEBUG
+#define NDEBUG
 
 // show minimumSerial output only in non-release mode
 #ifndef NDEBUG
@@ -89,139 +89,17 @@ void UbirchSIM800::setAPN(const __FlashStringHelper *apn, const __FlashStringHel
     _pass = pass;
 }
 
-unsigned int UbirchSIM800::readline(char *buffer, size_t max, uint16_t timeout) {
-    //PRINT("readline: timeout="); DEBUGLN(timeout);
-    uint16_t idx = 0;
-    while (--timeout) {
-        //if((timeout % 1000) == 0) DEBUG("=");
-        while (_serial.available()) {
-            char c = (char) _serial.read();
-            if (c == '\r') {
-                //PRINTLN("(CR)");
-                continue;
-            }
-            if (c == '\n') {
-                //PRINTLN("(NL)");
-                if (!idx) continue;
-                timeout = 0;
-                break;
-            }
-            //DEBUG(c, HEX);
-            if (idx < max - 1) buffer[idx++] = c;
-        }
+bool UbirchSIM800::time(char *date, char *time, char *tz) {
+    println(F("AT+CCLK?"));
 
-        if (timeout == 0) {
-            //PRINTLN("(TIMEOUT)");
-            break;
-        }
-        delay(1);
-    }
-    buffer[idx] = 0;
-    return idx;
-};
+    char response[30] = "";
+    readline(response, 30, DEFAULT_SERIAL_TIMEOUT);
 
-void UbirchSIM800::eatEcho() {
-    while (_serial.available()) {
-        _serial.read();
-        delay(1);
-    }
-}
+    //+CCLK: "04/01/01,00:41:47+08"
+    int m = sscanf_P(response, PSTR("+CCLK: \"%8s,%8s%3s\""),
+                     date, time, tz);
 
-void UbirchSIM800::print(const __FlashStringHelper *s) {
-    PRINT(">>> ");
-    DEBUGQLN(s);
-    _serial.print(s);
-}
-
-void UbirchSIM800::print(uint16_t s) {
-    PRINT(">>> ");
-    DEBUGLN(s);
-    _serial.print(s);
-}
-
-
-void UbirchSIM800::print(const char *s) {
-    PRINT(">>> ");
-    DEBUGQLN(s);
-    _serial.print(s);
-}
-
-void UbirchSIM800::println(const __FlashStringHelper *s) {
-    PRINT(">>> ");
-    DEBUGQLN(s);
-    _serial.print(s);
-    eatEcho();
-    _serial.println();
-}
-
-void UbirchSIM800::println(uint16_t s) {
-    PRINT(">>> ");
-    DEBUGLN(s);
-    _serial.print(s);
-    eatEcho();
-    _serial.println();
-}
-
-void UbirchSIM800::println(const char *s) {
-    PRINT(">>> ");
-    DEBUGQLN(s);
-    _serial.print(s);
-    eatEcho();
-    _serial.println();
-}
-
-bool UbirchSIM800::expect(const __FlashStringHelper *expected, uint16_t timeout) {
-    char buf[100];
-    unsigned int len = readline(buf, 100, timeout);
-    PRINT("<<< (");
-    DEBUG(len);
-    PRINT(") ");
-    DEBUGQLN(buf);
-    return strcmp_P(buf, (char PROGMEM *) expected) == 0;
-}
-
-bool UbirchSIM800::expect(const __FlashStringHelper *cmd, const __FlashStringHelper *expected, uint16_t timeout) {
-    println(cmd);
-    return expect(expected, timeout);
-}
-
-bool UbirchSIM800::expect_OK(uint16_t timeout) {
-    return expect(F("OK"), timeout);
-}
-
-bool UbirchSIM800::expect_OK(const __FlashStringHelper *cmd, uint16_t timeout) {
-    return expect(cmd, F("OK"), timeout);
-}
-
-bool UbirchSIM800::expect_scan(const __FlashStringHelper *pattern, void *ref, uint16_t timeout) {
-    char buf[100];
-    unsigned int len = readline(buf, 100, timeout);
-    PRINT("<<< (");
-    DEBUG(len);
-    PRINT(") ");
-    DEBUGQLN(buf);
-    return sscanf_P(buf, (const char PROGMEM *) pattern, ref) == 1;
-}
-
-bool UbirchSIM800::expect_scan(const __FlashStringHelper *pattern, void *ref, void *ref1, uint16_t timeout) {
-    char buf[100];
-    unsigned int len = readline(buf, 100, timeout);
-    PRINT("<<< (");
-    DEBUG(len);
-    PRINT(") ");
-    DEBUGQLN(buf);
-    return sscanf_P(buf, (char PROGMEM *) pattern, ref, ref1) == 2;
-}
-
-bool UbirchSIM800::expect_scan(const __FlashStringHelper *pattern, void *ref, void *ref1, void *ref2,
-                               uint16_t timeout) {
-    char buf[100];
-    unsigned int len = readline(buf, 100, timeout);
-    PRINT("<<< (");
-    DEBUG(len);
-    PRINT(") ");
-    DEBUGQLN(buf);
-    return sscanf_P(buf, (char PROGMEM *) pattern, ref, ref1, ref2) == 1;
+    return m == 3;
 }
 
 
@@ -275,7 +153,7 @@ bool UbirchSIM800::registerNetwork(uint16_t timeout) {
     uint8_t n = 0;
     expect_OK(F("AT"));
     timeout = timeout / 1000;
-    for (; --timeout;) {
+    while (timeout--) {
         println(F("AT+CREG?"));
         expect_scan(F("+CREG: 0,%d"), &n);
         switch (n) {
@@ -313,9 +191,9 @@ bool UbirchSIM800::enableGPRS(uint16_t timeout) {
     expect_OK(F("AT+CIPRXGET=1")); // we will receive manually
 
     bool attached = false;
-    for (; !attached && --timeout;) {
+    while (!attached && timeout--) {
         attached = expect_OK(F("AT+CGATT=1"), 10000);
-        delay(100);
+        delay(1000);
     }
     if (!attached) return false;
 
@@ -406,15 +284,12 @@ size_t UbirchSIM800::GETReadPayload(char *buffer, uint32_t start, size_t length)
 
 inline size_t UbirchSIM800::read(char *buffer, size_t length) {
     uint32_t idx = 0;
-    PRINT("expected: "); DEBUGLN(length);
     while (length) {
-        while (_serial.available()) {
+        while(length && _serial.available()) {
             buffer[idx++] = (char) _serial.read();
             length--;
-            DEBUG(buffer[idx-1]);
         }
     }
-    PRINT("GOT "); DEBUGLN(idx);
     return idx;
 }
 
@@ -488,8 +363,8 @@ bool UbirchSIM800::send(char *buffer, size_t size, size_t &accepted) {
 }
 
 size_t UbirchSIM800::receive(char *buffer, size_t size) {
-    size_t actual;
-    for(actual = 0; actual < size;) {
+    size_t actual = 0;
+    while(actual < size) {
         uint8_t chunk = min(size - actual, 128);
         print(F("AT+CIPRXGET=2,0,"));
         println(chunk);
@@ -503,19 +378,142 @@ size_t UbirchSIM800::receive(char *buffer, size_t size) {
     return actual;
 }
 
-/*
+// ===========================================================================
+// PROTECTED
+// ===========================================================================
 
-AT+SAPBR=3,1,"APN","internet.eplus.de"
-AT+SAPBR=3,1,"USER","eplus"
-AT+SAPBR=3,1,"PWD","grps"
-AT+CIPSHUT
-AT+CIPMUX=1
-AT+CSTT="internet.eplus.de"
-AT+CIICR
-AT+CIFSR
-AT+CIPSTART=0,"TCP","api.ubirch.com","23456"
-AT+CMEE=2
-AT+CIPQSEND=0
-AT+CIPSEND=0,10
+unsigned int UbirchSIM800::readline(char *buffer, size_t max, uint16_t timeout) {
+    //PRINT("readline: timeout="); DEBUGLN(timeout);
+    uint16_t idx = 0;
+    while (--timeout) {
+        //if((timeout % 1000) == 0) DEBUG("=");
+        while (_serial.available()) {
+            char c = (char) _serial.read();
+            if (c == '\r') {
+                //PRINTLN("(CR)");
+                continue;
+            }
+            if (c == '\n') {
+                //PRINTLN("(NL)");
+                if (!idx) continue;
+                timeout = 0;
+                break;
+            }
+            //DEBUG(c, HEX);
+            if (idx < max - 1) buffer[idx++] = c;
+        }
 
- */
+        if (timeout == 0) {
+            //PRINTLN("(TIMEOUT)");
+            break;
+        }
+        delay(1);
+    }
+    buffer[idx] = 0;
+    return idx;
+};
+
+void UbirchSIM800::eatEcho() {
+    while (_serial.available()) {
+        _serial.read();
+        delay(1);
+    }
+}
+
+void UbirchSIM800::print(const __FlashStringHelper *s) {
+    PRINT(">>> ");
+    DEBUGQLN(s);
+    _serial.print(s);
+}
+
+void UbirchSIM800::print(uint32_t s) {
+    PRINT(">>> ");
+    DEBUGLN(s);
+    _serial.print(s);
+}
+
+
+void UbirchSIM800::print(const char *s) {
+    PRINT(">>> ");
+    DEBUGQLN(s);
+    _serial.print(s);
+}
+
+void UbirchSIM800::println(const __FlashStringHelper *s) {
+    PRINT(">>> ");
+    DEBUGQLN(s);
+    _serial.print(s);
+    eatEcho();
+    _serial.println();
+}
+
+void UbirchSIM800::println(uint32_t s) {
+    PRINT(">>> ");
+    DEBUGLN(s);
+    _serial.print(s);
+    eatEcho();
+    _serial.println();
+}
+
+void UbirchSIM800::println(const char *s) {
+    PRINT(">>> ");
+    DEBUGQLN(s);
+    _serial.print(s);
+    eatEcho();
+    _serial.println();
+}
+
+bool UbirchSIM800::expect(const __FlashStringHelper *expected, uint16_t timeout) {
+    char buf[100];
+    unsigned int len = readline(buf, 100, timeout);
+    PRINT("<<< (");
+    DEBUG(len);
+    PRINT(") ");
+    DEBUGQLN(buf);
+    return strcmp_P(buf, (char PROGMEM *) expected) == 0;
+}
+
+bool UbirchSIM800::expect(const __FlashStringHelper *cmd, const __FlashStringHelper *expected, uint16_t timeout) {
+    println(cmd);
+    return expect(expected, timeout);
+}
+
+bool UbirchSIM800::expect_OK(uint16_t timeout) {
+    return expect(F("OK"), timeout);
+}
+
+bool UbirchSIM800::expect_OK(const __FlashStringHelper *cmd, uint16_t timeout) {
+    return expect(cmd, F("OK"), timeout);
+}
+
+bool UbirchSIM800::expect_scan(const __FlashStringHelper *pattern, void *ref, uint16_t timeout) {
+    char buf[100];
+    unsigned int len = readline(buf, 100, timeout);
+    PRINT("<<< (");
+    DEBUG(len);
+    PRINT(") ");
+    DEBUGQLN(buf);
+    return sscanf_P(buf, (const char PROGMEM *) pattern, ref) == 1;
+}
+
+bool UbirchSIM800::expect_scan(const __FlashStringHelper *pattern, void *ref, void *ref1, uint16_t timeout) {
+    char buf[100];
+    unsigned int len = readline(buf, 100, timeout);
+    PRINT("<<< (");
+    DEBUG(len);
+    PRINT(") ");
+    DEBUGQLN(buf);
+    return sscanf_P(buf, (char PROGMEM *) pattern, ref, ref1) == 2;
+}
+
+bool UbirchSIM800::expect_scan(const __FlashStringHelper *pattern, void *ref, void *ref1, void *ref2,
+                               uint16_t timeout) {
+    char buf[100];
+    unsigned int len = readline(buf, 100, timeout);
+    PRINT("<<< (");
+    DEBUG(len);
+    PRINT(") ");
+    DEBUGQLN(buf);
+    return sscanf_P(buf, (char PROGMEM *) pattern, ref, ref1, ref2) == 1;
+}
+

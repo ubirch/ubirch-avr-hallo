@@ -43,14 +43,14 @@ private:
 
     void print(const char *s);
 
-    void print(uint16_t s);
+    void print(uint32_t s);
 
     void println(const __FlashStringHelper *s);
 
     void println(const char *s);
 
 
-    void println(uint16_t s);
+    void println(uint32_t s);
 
 protected:
     SoftwareSerial _serial = SoftwareSerial(SIM800_TX, SIM800_RX);
@@ -59,8 +59,10 @@ protected:
     const __FlashStringHelper *_user;
     const __FlashStringHelper *_pass;
 
+    // read raw data
     size_t read(char *buffer, size_t length);
 
+    // read a single line into the given buffer
     size_t readline(char *buffer, size_t max, uint16_t timeout);
 
     // eat input until no more is available, basically sucks up echos and left over status messages
@@ -93,11 +95,10 @@ protected:
 public:
     UbirchSIM800();
 
-    void test();
-
     // stores apn, username and password for the time beeing
     void setAPN(const __FlashStringHelper *apn, const __FlashStringHelper *user, const __FlashStringHelper *pass);
 
+    // reset the SIM800
     bool reset();
 
     // resets the SIM chip (if the chip is already awake)
@@ -117,6 +118,9 @@ public:
 
     // disable GPRS
     bool disableGPRS();
+
+    // get time off the SIM800 RTC
+    bool time(char *date, char *time, char *tz);
 
     bool connect(const char *address, uint16_t port, uint16_t timeout = 30000);
 

@@ -148,6 +148,15 @@ inline bool receiveHttp(const char *fname, const char *url) {
 
     static File file = SD.open(fname, O_WRONLY | O_CREAT | O_TRUNC);
 
+    char date[8];
+    char time[8];
+    char timezone[3];
+
+    if (sim800.time(date, time, timezone)) {
+        DEBUGLN(time);
+    };
+
+
     uint32_t length = 0;
     uint16_t status = sim800.GET(url, length);
     PRINT("HTTP STATUS: ");
@@ -155,22 +164,25 @@ inline bool receiveHttp(const char *fname, const char *url) {
     PRINT("FILE LENGTH: ");
     DEBUGLN(length);
 
+
     if (length > 0) {
         uint32_t pos = 0, r;
         do {
             r = sim800.GETReadPayload(buffer, pos, BUFSIZE);
-            if ((pos % 10 * 1024) == 0) {
+            if ((pos % 10240) == 0) {
                 DEBUG(pos);
                 PRINTLN("");
             } else
-                PRINT(".");
+                if(pos % (1024) == 0) PRINT(".");
             pos += r;
-            delay(1000);
             file.write(buffer, r);
         } while (pos < length);
 
     }
     free(buffer);
+    if (sim800.time(date, time, timezone)) {
+        DEBUG(time);
+    };
     return file.close() && length > 0;
 }
 
@@ -184,10 +196,11 @@ void freeMem() {
 
 // the main loop just reads the responses from the modem and
 // writes them to the serial port
+static int c = 'd';
+
 void loop() {
-    freeMem();
-    PRINTLN("MENU [u - upload, d - download, p - play file]");
-    int c = 'd';
+//    freeMem();
+//    PRINTLN("MENU [u - upload, d - download, p - play file]");
 //    while ((c = minimumSerial.read()) == -1);
 //    while (minimumSerial.read() != -1);
 
@@ -204,11 +217,12 @@ void loop() {
             break;
         case 'd':
             PRINTLN("receiving file");
-            if (receiveHttp("TEST.OGG", "http://api.ubirch.com/rp15/fewl")) {
+            if (receiveHttp("TEST.OGG", "http://api.ubirch.com/rp15/app/test2.ogg")) {
                 PRINTLN("SUCCESS");
             } else {
                 PRINTLN("FAILED");
             }
+            c = 'p';
             break;
         case 'p':
             if (!vs1053.begin()) {
@@ -221,12 +235,12 @@ void loop() {
             vs1053.setVolume(1, 1);
             PRINTLN("playing downloaded file");
             vs1053.playFullFile("TEST.OGG");
+            c = 'x';
             break;
         default:
             break;
 
     }
-    haltOK();
 }
 
 void createTestFile() {
