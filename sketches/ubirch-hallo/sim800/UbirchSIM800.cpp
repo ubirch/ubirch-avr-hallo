@@ -27,7 +27,7 @@
 
 extern MinimumSerial minimumSerial;
 
-//#define NDEBUG
+#define NDEBUG
 
 // show minimumSerial output only in non-release mode
 #ifndef NDEBUG
@@ -324,6 +324,16 @@ uint16_t UbirchSIM800::HTTP_post(const char *url, uint32_t &length) {
 }
 
 uint16_t UbirchSIM800::HTTP_post(const char *url, uint32_t length, Stream &stream, uint32_t size) {
+    expect_OK(F("AT+HTTPTERM"));
+    delay(100);
+
+    if (!expect_OK(F("AT+HTTPINIT"))) return 1000;
+    if (!expect_OK(F("AT+HTTPPARA=\"CID\",1"))) return 1001;
+    if (!expect_OK(F("AT+HTTPPARA=\"UA\",\"UBIRCH#1\""))) return 1002;
+    if (!expect_OK(F("AT+HTTPPARA=\"REDIR\",1"))) return 1003;
+    println_param("AT+HTTPPARA=\"URL\"", url);
+    if (!expect_OK()) return 1003;
+
     print(F("AT+HTTPDATA="));
     print(size);
     print(F(","));
@@ -331,32 +341,51 @@ uint16_t UbirchSIM800::HTTP_post(const char *url, uint32_t length, Stream &strea
 
     if(!expect(F("DOWNLOAD"))) return 0;
 
-    char *buffer = (char *)malloc(64);
+    uint8_t *buffer = (uint8_t *)malloc(64);
     uint32_t pos = 0, r = 0;
 
-    while ((r = stream.readBytes(buffer, 64)) > 0) {
-        DEBUG(pos);
-        PRINT(" ");
-        if (r == -1) {
-            PRINTLN("ERROR READING FROM STREAM");
-            return 0;
-        } else {
-            if (r < 64) PRINTLN("EOF");
-            static size_t accepted = _serial.write(buffer, r);
-            if(accepted != r) {
-                PRINT("ERROR: ");
-                DEBUG(r);
-                PRINT(" ");
-                DEBUGLN(accepted);
-            } else {
-                PRINTLN("OK");
-            }
-            pos += r;
+    do {
+        for(r = 0; r < 64; r++) {
+            int c = stream.read();
+            if(c == -1) break;
+            _serial.write(c);
         }
-    }
-    free(buffer);
 
-    return HTTP_post(url, length);
+        if (r < 64) {
+            PRINTLN("EOF");
+            break;
+        }
+//        static size_t accepted = _serial.write(buffer, r);
+//        if(accepted != r) {
+//            PRINT("ERROR: ");
+//            DEBUG(r);
+//            PRINT(" ");
+//            DEBUGLN(accepted);
+//        } else
+#ifdef NDEBUG
+        if ((pos % 10240) == 0) {
+            DEBUG(pos);
+            PRINT(" ");
+            DEBUG(r);
+            PRINTLN("");
+        } else if (pos % (1024) == 0) PRINT(".");
+#endif
+        pos += r;
+    } while(r == 64);
+
+    free(buffer);
+    PRINTLN("");
+    DEBUGLN(pos);
+
+    if(!expect_OK(5000)) return 1005;
+
+    if (!expect_OK(F("AT+HTTPACTION=1"))) return 1004;
+
+    // wait for the action to be completed, give it 5s for each try
+    uint16_t status;
+    while(!expect_scan(F("+HTTPACTION: 1,%d,%lu"), &status, &length, 5000));
+
+    return status;
 }
 
 inline size_t UbirchSIM800::read(char *buffer, size_t length) {

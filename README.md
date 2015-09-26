@@ -1,6 +1,11 @@
 # ubirch-hallo
 
-...
+Written to the sounds of 
+
+- [kors k (ST2B recording)](https://soundcloud.com/kors-k) 
+- [Afterhour Sounds](https://soundcloud.com/afterhour-sounds/lars-neubert-presents-nr66)
+- [Nils Frajm](https://soundcloud.com/nils_frahm)
+- ... and others they follow and reference
 
 ## Parts
 

@@ -70,21 +70,15 @@ void setup() {
     Serial.begin(BAUD);
 
     // initially disable the watchdog, it confused people
-    disable_watchdog();
+    enable_watchdog();
 
     blink(3, 1000);
-
-    // == SETUP ===============================================
-    if (!SD.begin(CARDCS)) {
-        PRINTLN("SDCARD not found");
-        haltError(0);
-    }
-    createTestFile();
-    PRINTLN("SDCARD initialized");
 
     PRINTLN("SIM800 wakeup");
     if (!sim800.wakeup()) haltError(1);
     sim800.setAPN(F(SIM800_APN), F(SIM800_USER), F(SIM800_PASS));
+
+    disable_watchdog();
 
     PRINTLN("SIM800 waiting for network registration");
     while (!sim800.registerNetwork()) {
@@ -95,50 +89,13 @@ void setup() {
     if (!sim800.enableGPRS()) haltError(3);
     PRINTLN("SIM800 initialized");
 
-}
-
-inline bool sendFile(const char *address, uint16_t port, const char *fname) {
-    if (!sim800.connect(address, port)) {
-        sim800.shutdown();
-        haltError(10);
+    // == SETUP ===============================================
+    if (!SD.begin(CARDCS)) {
+        PRINTLN("SDCARD not found");
+        haltError(0);
     }
-
-    static char *buffer = (char *) malloc(BUFSIZE);
-
-    int r = 0;
-    static uint32_t n = 0;
-
-    SD.cacheClear();
-    File file = SD.open(fname, O_RDONLY);
-    if (!file) {
-        PRINT("could not open file: ");
-        DEBUGLN(fname);
-        return false;
-    }
-    while ((r = file.read(buffer, BUFSIZE)) > 0) {
-        DEBUG(n);
-        PRINT(" ");
-        if (r == -1) {
-            PRINTLN("ERROR READING");
-            return false;
-        } else {
-            if (r < BUFSIZE) PRINTLN("EOF");
-            static size_t accepted = 0;
-            if (!sim800.send(buffer, (size_t) r, accepted)) {
-                PRINT("ERROR: ");
-                DEBUG(r);
-                PRINT(" ");
-                DEBUGLN(accepted);
-            } else {
-                PRINTLN("OK");
-            }
-            n += r;
-        }
-    }
-    file.close();
-    free(buffer);
-
-    return sim800.disconnect();
+    createTestFile();
+    PRINTLN("SDCARD initialized");
 }
 
 void freeMem() {
@@ -149,13 +106,14 @@ void freeMem() {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
 
-// the main loop just reads the responses from the modem and
-// writes them to the serial port
-static int c = 'd';
-
+static int c = 'u';
 void loop() {
-//    freeMem();
-//    PRINTLN("MENU [u - upload, d - download, p - play file]");
+    static File file;
+    static uint32_t length;
+    static uint16_t result;
+
+    freeMem();
+    PRINTLN("MENU [u - upload, d - download, p - play file]");
 //    while ((c = minimumSerial.read()) == -1);
 //    while (minimumSerial.read() != -1);
 
@@ -164,27 +122,39 @@ void loop() {
             break;
         case 'u':
             PRINTLN("sending file");
-            if (sendFile("api.ubirch.com", 23456, "TEST.TXT")) {
-                PRINTLN("SUCCESS");
-            } else {
-                PRINTLN("FAILED");
+            SD.cacheClear();
+            file = SD.open("test.ogg", O_RDONLY);
+            result = sim800.HTTP_post("http://api.ubirch.com:23456/upload", length, file, file.fileSize());
+            file.close();
+            switch (result) {
+                case 200:
+                    PRINT("200 OK (");
+                    DEBUG(length);
+                    PRINTLN(" bytes)");
+                    c = 'd';
+                    break;
+                default:
+                    DEBUG(result);
+                    PRINT("??? (");
+                    DEBUG(length);
+                    PRINTLN(" bytes)");
+                    c = 'x';
             }
             break;
         case 'd':
             PRINTLN("receiving file");
             SD.cacheClear();
-            static uint32_t length;
-            static File file = SD.open("TEST.OGG", O_WRONLY | O_CREAT | O_TRUNC);
-            static uint16_t result = sim800.HTTP_get("http://api.ubirch.com/rp15/app/test2.ogg", length, file);
+            file = SD.open("received.ogg", O_WRONLY | O_CREAT | O_TRUNC);
+            result = sim800.HTTP_get("http://api.ubirch.com:23456/download", length, file);
             file.close();
-            switch(result) {
-                case 200: 
+            switch (result) {
+                case 200:
                     PRINT("200 OK (");
                     DEBUG(length);
                     PRINTLN(" bytes)");
                     c = 'p';
                     break;
-                default: 
+                default:
                     DEBUG(result);
                     PRINT("??? (");
                     DEBUG(length);
@@ -202,10 +172,11 @@ void loop() {
 
             vs1053.setVolume(1, 1);
             PRINTLN("playing downloaded file");
-            vs1053.playFullFile("TEST.OGG");
+            vs1053.playFullFile("received.ogg");
             c = 'x';
             break;
         default:
+            haltOK();
             break;
 
     }
