@@ -15,6 +15,23 @@ Written to the sounds of
 - [SIM800 cell-network chip](http://adafru.it/fix2468) (similar, onboard ubirch #1) 
 - ...
 
+## Wiring
+
+You will need to refer to @chaosblog's wiring sheet for the pins used on the ubirch #1.
+
+- default pins (SPI)
+    * VCC -> any power pin (i used I2C1 #3) 
+    * GND -> ISP #5 GND
+    * CLK -> ISP #3 SCK
+    * MISO -> ISP #4 MISO
+    * MOSI -> ISP #2 D.I2C (MOSI)
+
+- special pins
+    * RST -> I2C2 #2 (SDA)
+    * CS -> ADC #2 (A1)
+    * XDCS -> ADC #1 (A0)
+    * SDCS -> DIGITAL #2 (D1)
+    * DREQ -> DIGITAL #1 (D0)
 
 ## Building
 
