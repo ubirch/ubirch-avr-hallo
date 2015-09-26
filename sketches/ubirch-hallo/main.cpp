@@ -92,9 +92,9 @@ void setup() {
 
     musicPlayer.setVolume(1, 1);
 
-    createTestFile();
-
-    haltOK();
+//    createTestFile();
+//
+//    haltOK();
 
     if (SD.remove("test.ogg")) PRINTLN("Deleted download file...");;
     static File f = SD.open("test.ogg", O_WRONLY | O_CREAT | O_TRUNC);

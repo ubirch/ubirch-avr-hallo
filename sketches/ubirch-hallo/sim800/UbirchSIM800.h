@@ -42,14 +42,14 @@ private:
 
     void print(const char *s);
 
-    void print(uint16_t s);
+    void print(uint32_t s);
 
     void println(const __FlashStringHelper *s);
 
     void println(const char *s);
 
 
-    void println(uint16_t s);
+    void println(uint32_t s);
 
 protected:
     SoftwareSerial _serial = SoftwareSerial(SIM800_TX, SIM800_RX);

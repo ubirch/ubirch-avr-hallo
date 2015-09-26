@@ -27,6 +27,8 @@
 
 extern MinimumSerial minimumSerial;
 
+#define NDEBUG
+
 // show minimumSerial output only in non-release mode
 #ifndef NDEBUG
 #   define PRINT(s) minimumSerial.print(F(s))
@@ -111,34 +113,34 @@ void UbirchSIM800::eatEcho() {
 }
 
 void UbirchSIM800::print(const __FlashStringHelper *s) {
-    PRINT(">>> ");
+    PRINT("+++ ");
     DEBUGQLN(s);
     _serial.print(s);
 }
 
-void UbirchSIM800::print(uint16_t s) {
-    PRINT(">>> ");
+void UbirchSIM800::print(uint32_t s) {
+    PRINT("+++ ");
     DEBUGQLN(s);
     _serial.print(s);
 }
 
 
 void UbirchSIM800::print(const char *s) {
-    PRINT(">>> ");
+    PRINT("+++ ");
     DEBUGQLN(s);
     _serial.print(s);
 }
 
 void UbirchSIM800::println(const __FlashStringHelper *s) {
-    PRINT(">>> ");
+    PRINT("+++ ");
     DEBUGQLN(s);
     _serial.print(s);
     eatEcho();
     _serial.println();
 }
 
-void UbirchSIM800::println(uint16_t s) {
-    PRINT(">>> ");
+void UbirchSIM800::println(uint32_t s) {
+    PRINT("+++ ");
     DEBUGQLN(s);
     _serial.print(s);
     eatEcho();
@@ -146,7 +148,7 @@ void UbirchSIM800::println(uint16_t s) {
 }
 
 void UbirchSIM800::println(const char *s) {
-    PRINT(">>> ");
+    PRINT("+++ ");
     DEBUGQLN(s);
     _serial.print(s);
     eatEcho();
@@ -156,7 +158,7 @@ void UbirchSIM800::println(const char *s) {
 bool UbirchSIM800::expect(const __FlashStringHelper *expected, uint16_t timeout) {
     char buf[100];
     unsigned int len = readline(buf, 100, timeout);
-    PRINT("<<< (");
+    PRINT("--- (");
     DEBUG(len);
     PRINT(") ");
     DEBUGQLN(buf);
@@ -179,7 +181,7 @@ bool UbirchSIM800::expect_OK(const __FlashStringHelper *cmd, uint16_t timeout) {
 bool UbirchSIM800::expect_scan(const __FlashStringHelper *pattern, void *ref, uint16_t timeout) {
     char buf[100];
     unsigned int len = readline(buf, 100, timeout);
-    PRINT("<<< (");
+    PRINT("--- (");
     DEBUG(len);
     PRINT(") ");
     DEBUGQLN(buf);
@@ -189,7 +191,7 @@ bool UbirchSIM800::expect_scan(const __FlashStringHelper *pattern, void *ref, ui
 bool UbirchSIM800::expect_scan(const __FlashStringHelper *pattern, void *ref, void *ref1, uint16_t timeout) {
     char buf[100];
     unsigned int len = readline(buf, 100, timeout);
-    PRINT("<<< (");
+    PRINT("--- (");
     DEBUG(len);
     PRINT(") ");
     DEBUGQLN(buf);
