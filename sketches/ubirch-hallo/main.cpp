@@ -141,51 +141,6 @@ inline bool sendFile(const char *address, uint16_t port, const char *fname) {
     return sim800.disconnect();
 }
 
-inline bool receiveHttp(const char *fname, const char *url) {
-    SD.cacheClear();
-
-    static char *buffer = (char *) malloc(BUFSIZE);
-
-    static File file = SD.open(fname, O_WRONLY | O_CREAT | O_TRUNC);
-
-    char date[8];
-    char time[8];
-    char timezone[3];
-
-    if (sim800.time(date, time, timezone)) {
-        DEBUGLN(time);
-    };
-
-
-    uint32_t length = 0;
-    uint16_t status = sim800.GET(url, length);
-    PRINT("HTTP STATUS: ");
-    DEBUGLN(status);
-    PRINT("FILE LENGTH: ");
-    DEBUGLN(length);
-
-
-    if (length > 0) {
-        uint32_t pos = 0, r;
-        do {
-            r = sim800.GETReadPayload(buffer, pos, BUFSIZE);
-            if ((pos % 10240) == 0) {
-                DEBUG(pos);
-                PRINTLN("");
-            } else
-                if(pos % (1024) == 0) PRINT(".");
-            pos += r;
-            file.write(buffer, r);
-        } while (pos < length);
-
-    }
-    free(buffer);
-    if (sim800.time(date, time, timezone)) {
-        DEBUG(time);
-    };
-    return file.close() && length > 0;
-}
-
 void freeMem() {
     PRINT("Free memory = ");
     DEBUGLN(SP - (__brkval ? (uint16_t) __brkval : (uint16_t) &__heap_start));
@@ -217,12 +172,25 @@ void loop() {
             break;
         case 'd':
             PRINTLN("receiving file");
-            if (receiveHttp("TEST.OGG", "http://api.ubirch.com/rp15/app/test2.ogg")) {
-                PRINTLN("SUCCESS");
-            } else {
-                PRINTLN("FAILED");
+            SD.cacheClear();
+            static uint32_t length;
+            static File file = SD.open("TEST.OGG", O_WRONLY | O_CREAT | O_TRUNC);
+            static uint16_t result = sim800.HTTP_get("http://api.ubirch.com/rp15/app/test2.ogg", length, file);
+            file.close();
+            switch(result) {
+                case 200: 
+                    PRINT("200 OK (");
+                    DEBUG(length);
+                    PRINTLN(" bytes)");
+                    c = 'p';
+                    break;
+                default: 
+                    DEBUG(result);
+                    PRINT("??? (");
+                    DEBUG(length);
+                    PRINTLN(" bytes)");
+                    c = 'x';
             }
-            c = 'p';
             break;
         case 'p':
             if (!vs1053.begin()) {

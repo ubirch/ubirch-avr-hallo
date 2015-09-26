@@ -49,7 +49,6 @@ private:
 
     void println(const char *s);
 
-
     void println(uint32_t s);
 
 protected:
@@ -122,21 +121,42 @@ public:
     // get time off the SIM800 RTC
     bool time(char *date, char *time, char *tz);
 
-    bool connect(const char *address, uint16_t port, uint16_t timeout = 30000);
-
-    bool disconnect();
-
-    bool send(char *buffer, size_t size, size_t &accepted);
-
-    // HTTP GET request, returns the status and puts length in the referenced variable
-    uint16_t GET(const char *url, uint32_t &length);
-
-    // read the payload after a GET request, returns the amount read, call multiple times to read whole
-    size_t GETReadPayload(char *buffer, uint32_t start, size_t length);
-
+    // query status of the network connection
     bool status();
 
+    // connect a pure network connection, may send() data after it is opened
+    bool connect(const char *address, uint16_t port, uint16_t timeout = 30000);
+
+    // disconnect a pure network connection
+    bool disconnect();
+
+    // send data down a pure network connection
+    bool send(char *buffer, size_t size, size_t &accepted);
+
     size_t receive(char *buffer, size_t size);
+
+    /**
+     * HTTP requests only handle data up to 319488 bytes
+     * This seems to be a limitation of the chip, an
+     * larger payload will result in a 602 No Memory
+     * result code
+     */
+
+    // HTTP GET request, returns the status and puts length in the referenced variable
+    uint16_t HTTP_get(const char *url, uint32_t &length);
+
+    // HTTP GET request, stores the received data in the stream (if length is > 0)
+    uint16_t HTTP_get(const char *url, uint32_t &length, Stream &stream);
+
+    // manually read the payload after a GET request, returns the amount read, call multiple times to read whole
+    size_t HTTP_get_read(char *buffer, uint32_t start, size_t length);
+
+    // HTTP HTTP_post request, returns the status
+    uint16_t HTTP_post(const char *url, uint32_t &length);
+
+    // HTTP HTTP_post request, reads the data from the stream and returns the result
+    uint16_t HTTP_post(const char *url, uint32_t length, Stream &stream, uint32_t size);
+
 
 };
 
