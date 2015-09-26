@@ -18,7 +18,7 @@
 #include "Adafruit_VS1053.h"
 #include <SdFat.h>
 
-SdFat SD;
+extern SdFat SD;
 
 #define VS1053_CONTROL_SPI_SETTING  SPISettings(250000,  MSBFIRST, SPI_MODE0)
 #define VS1053_DATA_SPI_SETTING     SPISettings(8000000, MSBFIRST, SPI_MODE0)

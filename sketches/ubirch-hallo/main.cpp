@@ -27,43 +27,9 @@
 #include "sim800/UbirchSIM800.h"
 #include "vs1053/Adafruit_VS1053_FilePlayer.h"
 
-#define BUFSIZE 64
-
-MinimumSerial minimumSerial;
-
-#define PRINT(s) minimumSerial.print(F(s))
-#define PRINTLN(s) minimumSerial.println(F(s))
-#define DEBUG(s) minimumSerial.print(s)
-#define DEBUGLN(s) minimumSerial.println(s)
-
-extern SdFat SD;
-
 UbirchSIM800 sim800 = UbirchSIM800();
 Adafruit_VS1053_FilePlayer vs1053 =
         Adafruit_VS1053_FilePlayer(BREAKOUT_RESET, BREAKOUT_CS, BREAKOUT_DCS, DREQ, CARDCS);
-
-void blink(uint8_t n, unsigned long speed) {
-    digitalWrite(UBIRCH_NO1_PIN_LED, LOW);
-    for (int i = n * 2; i > 0; i--) {
-        PRINT(".");
-        digitalWrite(UBIRCH_NO1_PIN_LED, i % 2 == 0 ? HIGH : LOW);
-        delay(speed);
-    }
-    digitalWrite(UBIRCH_NO1_PIN_LED, LOW);
-    PRINTLN("");
-}
-
-extern unsigned int __heap_start;
-extern void *__brkval;
-
-void haltOK();
-
-// send blink signals for error codes and never return
-void haltError(uint8_t code);
-
-void createTestFile();
-
-void freeMem();
 
 void setup() {
     // configure the initial values for UART and the connection to SIM800
@@ -96,11 +62,6 @@ void setup() {
     }
     createTestFile();
     PRINTLN("SDCARD initialized");
-}
-
-void freeMem() {
-    PRINT("Free memory = ");
-    DEBUGLN(SP - (__brkval ? (uint16_t) __brkval : (uint16_t) &__heap_start));
 }
 
 #pragma clang diagnostic push
@@ -181,6 +142,7 @@ void loop() {
 
     }
 }
+#pragma clang diagnostic pop
 
 void createTestFile() {
     if (SD.exists("TEST.TXT")) return;
@@ -206,6 +168,25 @@ void createTestFile() {
     DEBUG(testFile.size());
     PRINTLN(" bytes");
 }
+
+void blink(uint8_t n, unsigned long speed) {
+    digitalWrite(UBIRCH_NO1_PIN_LED, LOW);
+    for (int i = n * 2; i > 0; i--) {
+        PRINT(".");
+        digitalWrite(UBIRCH_NO1_PIN_LED, i % 2 == 0 ? HIGH : LOW);
+        delay(speed);
+    }
+    digitalWrite(UBIRCH_NO1_PIN_LED, LOW);
+    PRINTLN("");
+}
+
+void freeMem() {
+    PRINT("Free memory = ");
+    DEBUGLN(SP - (__brkval ? (uint16_t) __brkval : (uint16_t) &__heap_start));
+}
+
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-noreturn"
 
 // send blink signals for error codes and never return
 void haltError(uint8_t code) {

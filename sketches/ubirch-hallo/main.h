@@ -17,14 +17,37 @@
 #define UBIRCH_NO1_PIN_LED      13
 #define UBIRCH_NO1_PIN_WATCHDOG 6
 
+// == special ubirch #1 stuff ==
 #define enable_led()    digitalWrite(UBIRCH_NO1_PIN_LED, HIGH)
 #define disable_led()   digitalWrite(UBIRCH_NO1_PIN_LED, LOW)
 
 #define enable_watchdog()   pinMode(UBIRCH_NO1_PIN_WATCHDOG, INPUT)
 #define disable_watchdog()  pinMode(UBIRCH_NO1_PIN_WATCHDOG, OUTPUT)
 
-// ERROR CODES
-#define HALLO_ERROR_AUDIO   1
-#define HALLO_ERROR_SDCARD  2
+#define PRINT(s) minimumSerial.print(F(s))
+#define PRINTLN(s) minimumSerial.println(F(s))
+#define DEBUG(s) minimumSerial.print(s)
+#define DEBUGLN(s) minimumSerial.println(s)
+
+// generic classes we use
+MinimumSerial minimumSerial;
+SdFat SD;
+
+// some functions used predeclared
+
+extern unsigned int __heap_start;
+extern void *__brkval;
+void freeMem();
+
+// blink regularly when no error halt was issued
+void haltOK();
+
+// send blink signals for error codes and never return
+void haltError(uint8_t code);
+
+// create our test file
+void createTestFile();
+
+void blink(uint8_t n, unsigned long speed);
 
 #endif // _UBIRCH_MAIN_H_
