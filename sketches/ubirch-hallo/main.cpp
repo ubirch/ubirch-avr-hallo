@@ -27,13 +27,13 @@
 #include "sim800/UbirchSIM800.h"
 #include "vs1053/Adafruit_VS1053_FilePlayer.h"
 
-UbirchSIM800 sim800 = UbirchSIM800();
-Adafruit_VS1053_FilePlayer vs1053 =
+static UbirchSIM800 sim800 = UbirchSIM800();
+static Adafruit_VS1053_FilePlayer vs1053 =
         Adafruit_VS1053_FilePlayer(BREAKOUT_RESET, BREAKOUT_CS, BREAKOUT_DCS, DREQ, CARDCS);
 
 void setup() {
     // configure the initial values for UART and the connection to SIM800
-    Serial.begin(BAUD);
+    minimumSerial.begin(BAUD);
 
     // initially disable the watchdog, it confused people
     enable_watchdog();
@@ -68,6 +68,7 @@ void setup() {
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
 
 static int c = 'u';
+
 void loop() {
     static File file;
     static uint32_t length;
@@ -142,6 +143,7 @@ void loop() {
 
     }
 }
+
 #pragma clang diagnostic pop
 
 void createTestFile() {
