@@ -143,12 +143,13 @@ bool UbirchSIM800::shutdown() {
 
 bool UbirchSIM800::registerNetwork(uint16_t timeout) {
     PRINTLN("!!! waiting for network registration");
-    uint8_t n = 0;
     expect_AT_OK(F(""));
     timeout = timeout / 1000;
-    while (timeout--) {
+    while (--timeout) {
+        uint8_t n = 0;
         println(F("AT+CREG?"));
         expect_scan(F("+CREG: 0,%d"), &n);
+#ifndef NDEBUG
         switch (n) {
             case 0:
                 PRINTLN("_");
@@ -172,6 +173,7 @@ bool UbirchSIM800::registerNetwork(uint16_t timeout) {
                 DEBUGLN(n);
                 break;
         }
+#endif
         if ((n == 1 || n == 5)) return true;
         delay(1000);
     }
@@ -221,7 +223,7 @@ bool UbirchSIM800::enableGPRS(uint16_t timeout) {
         println(F("AT+CGATT?"));
         expect_scan(F("+CGATT: %d"), &gprsState);
         delay(1);
-    } while (timeout-- && !gprsState);
+    } while (--timeout && !gprsState);
 
     return gprsState != 0;
 }
@@ -265,10 +267,12 @@ uint16_t UbirchSIM800::HTTP_get(const char *url, uint32_t &length, Stream &strea
     uint32_t pos = 0, r = 0;
     do {
         r = HTTP_get_read(buffer, pos, SIM800_BUFSIZE);
+#ifndef NDEBUG
         if ((pos % 10240) == 0) {
             DEBUG(pos);
             PRINTLN("");
         } else if (pos % (1024) == 0) { PRINT("."); }
+#endif
         pos += r;
         stream.write(buffer, r);
     } while (pos < length);
