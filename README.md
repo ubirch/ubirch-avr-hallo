@@ -9,8 +9,6 @@ Written to the sounds of
 
 ## Parts
 
-# Adafruit Trinket Audio
-
 - [MPR121 capacitive sensor breakout](http://adafru.it/1982)
 - [Adafruit MicroSD/Audio Breakout](http://adafru.it/1381)
 - [SIM800 cell-network chip](http://adafru.it/fix2468) (similar, onboard ubirch #1) 
