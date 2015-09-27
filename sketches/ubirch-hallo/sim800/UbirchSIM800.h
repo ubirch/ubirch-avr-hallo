@@ -37,60 +37,6 @@
 
 class UbirchSIM800 {
 
-private:
-
-    void print(const __FlashStringHelper *s);
-
-    void print(const char *s);
-
-    void print(uint32_t s);
-
-    void println(const __FlashStringHelper *s);
-
-    void println(const char *s);
-
-    void println(uint32_t s);
-
-protected:
-    SoftwareSerial _serial = SoftwareSerial(SIM800_TX, SIM800_RX);
-    const uint32_t _serialSpeed = SIM800_BAUD;
-    const __FlashStringHelper *_apn;
-    const __FlashStringHelper *_user;
-    const __FlashStringHelper *_pass;
-
-    // read raw data
-    size_t read(char *buffer, size_t length);
-
-    // read a single line into the given buffer
-    size_t readline(char *buffer, size_t max, uint16_t timeout);
-
-    // eat input until no more is available, basically sucks up echos and left over status messages
-    void eatEcho();
-
-    // expect the string to be sent
-    bool expect(const __FlashStringHelper *expected, uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
-
-    // send a command and expect it to return a certain string
-    bool expect(const __FlashStringHelper *cmd, const __FlashStringHelper *expected,
-                uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
-
-    // expect OK
-    bool expect_OK(uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
-
-    // send command and expect OK
-    bool expect_OK(const __FlashStringHelper *cmd, uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
-
-    // expect a certain pattern with one value to be returned, ref is a pointer to the value
-    bool expect_scan(const __FlashStringHelper *pattern, void *ref,
-                     uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
-
-    // expect a certain pattern with two values to be returned, ref, ref1 are pointer to the values
-    bool expect_scan(const __FlashStringHelper *pattern, void *ref, void *ref1,
-                     uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
-
-    bool expect_scan(const __FlashStringHelper *pattern, void *ref, void *ref1, void *ref2,
-                     uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
-
 public:
     UbirchSIM800();
 
@@ -157,6 +103,78 @@ public:
     // HTTP HTTP_post request, reads the data from the stream and returns the result
     uint16_t HTTP_post(const char *url, uint32_t length, Stream &stream, uint32_t size);
 
+protected:
+    SoftwareSerial _serial = SoftwareSerial(SIM800_TX, SIM800_RX);
+    const uint32_t _serialSpeed = SIM800_BAUD;
+    const __FlashStringHelper *_apn;
+    const __FlashStringHelper *_user;
+    const __FlashStringHelper *_pass;
+
+    // read raw data
+    size_t read(char *buffer, size_t length);
+
+    // read a single line into the given buffer
+    size_t readline(char *buffer, size_t max, uint16_t timeout);
+
+    // eat input until no more is available, basically sucks up echos and left over status messages
+    void eatEcho();
+
+    // expect the string to be sent
+    bool expect(const __FlashStringHelper *expected, uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
+
+    // send a command and expect it to return a certain string
+    bool expect(const __FlashStringHelper *cmd, const __FlashStringHelper *expected,
+                uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
+
+    // expect OK
+    bool expect_OK(uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
+
+    // send command and expect OK
+    bool expect_OK(const __FlashStringHelper *cmd, uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
+
+    // expect a certain pattern with one value to be returned, ref is a pointer to the value
+    bool expect_scan(const __FlashStringHelper *pattern, void *ref,
+                     uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
+
+    // expect a certain pattern with two values to be returned, ref, ref1 are pointer to the values
+    bool expect_scan(const __FlashStringHelper *pattern, void *ref, void *ref1,
+                     uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
+
+    bool expect_scan(const __FlashStringHelper *pattern, void *ref, void *ref1, void *ref2,
+                     uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
+
+    // MODEM commands
+    const char *C_AT PROGMEM = "AT";
+    const char *C_ECHO_OFF PROGMEM = "ATE0";
+
+    const char *C_HW_FLOW_CONTROL_OFF PROGMEM = "AT+IFC=0,0";
+    const char *C_UNSOLICITED_URC_OFF PROGMEM = "AT+CIURC=0";
+
+    const char *C_POWER_DOWN PROGMEM = "AT+CPOWD=1";
+    const char *R_POWER_DOWN PROGMEM = "NORMAL POWER DOWN";
+
+    const char *C_NETWORK_REGISTER PROGMEM = "AT+CREG?";
+    const char *R_NETWORK_REGISTER PROGMEM = "+CREG: 0,%d";
+
+    const char *C_QUERY_RTC PROGMEM = "AT+CCLK?";
+    const char *R_QUERY_RTC PROGMEM = "+CCLK: \"%8s,%8s%3s\"";
+
+    const char *R_OK PROGMEM = "OK";
+
+
+private:
+
+    void print(const __FlashStringHelper *s);
+
+    void print(const char *s);
+
+    void print(uint32_t s);
+
+    void println(const __FlashStringHelper *s);
+
+    void println(const char *s);
+
+    void println(uint32_t s);
 
 };
 
