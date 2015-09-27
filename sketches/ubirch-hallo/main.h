@@ -42,7 +42,9 @@ SdFat SD;
 
 extern unsigned int __heap_start;
 extern void *__brkval;
-void freeMem();
+
+// print free memory
+static void freeMem();
 
 // blink regularly when no error halt was issued
 static void haltOK();
@@ -50,9 +52,10 @@ static void haltOK();
 // send blink signals for error codes and never return
 static void haltError(uint8_t code);
 
-// create our test file
-static void createTestFile();
-
+// do some blinking
 static void blink(uint8_t n, unsigned long speed);
+
+// create our test file
+void createTestFile();
 
 #endif // _UBIRCH_MAIN_H_

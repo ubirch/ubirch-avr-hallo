@@ -101,7 +101,7 @@ public:
     uint16_t HTTP_post(const char *url, uint32_t &length);
 
     // HTTP HTTP_post request, reads the data from the stream and returns the result
-    uint16_t HTTP_post(const char *url, uint32_t length, Stream &stream, uint32_t size);
+    uint16_t HTTP_post(const char *url, uint32_t &length, Stream &stream, uint32_t size);
 
 protected:
     SoftwareSerial _serial = SoftwareSerial(SIM800_TX, SIM800_RX);

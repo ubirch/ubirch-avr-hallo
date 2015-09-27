@@ -92,13 +92,7 @@ void UbirchSIM800::setAPN(const __FlashStringHelper *apn, const __FlashStringHel
 bool UbirchSIM800::time(char *date, char *time, char *tz) {
     println(F("AT+CCLK?"));
 
-    char response[30] = "";
-    readline(response, 30, DEFAULT_SERIAL_TIMEOUT);
-
-    //+CCLK: "04/01/01,00:41:47+08"
-    int m = sscanf_P(response, "+CCLK: \"%8s,%8s%3s\"", date, time, tz);
-
-    return m == 3;
+    return expect_scan(F("+CCLK: \"%8s,%8s%3s\""), date, time, tz) == 3;
 }
 
 
@@ -308,13 +302,13 @@ uint16_t UbirchSIM800::HTTP_post(const char *url, uint32_t &length) {
     delay(100);
 
     if (!expect_AT_OK(F("+HTTPINIT"))) return 1000;
-    if (!expect_AT_OK(F("+HTTPPARA=\"CID\",1"))) return 1001;
-    if (!expect_AT_OK(F("+HTTPPARA=\"UA\",\"UBIRCH#1\""))) return 1002;
-    if (!expect_AT_OK(F("+HTTPPARA=\"REDIR\",1"))) return 1003;
+    if (!expect_AT_OK(F("+HTTPPARA=\"CID\",1"))) return 1101;
+    if (!expect_AT_OK(F("+HTTPPARA=\"UA\",\"UBIRCH#1\""))) return 1102;
+    if (!expect_AT_OK(F("+HTTPPARA=\"REDIR\",1"))) return 1103;
     println_param("AT+HTTPPARA=\"URL\"", url);
-    if (!expect_OK()) return 1003;
+    if (!expect_OK()) return 1110;
 
-    if (!expect_AT_OK(F("+HTTPACTION=1"))) return 1004;
+    if (!expect_AT_OK(F("+HTTPACTION=1"))) return 1001;
 
     uint16_t status;
     expect_scan(F("+HTTPACTION: 0,%d,%lu"), &status, &length, 60000);
@@ -322,31 +316,31 @@ uint16_t UbirchSIM800::HTTP_post(const char *url, uint32_t &length) {
     return status;
 }
 
-uint16_t UbirchSIM800::HTTP_post(const char *url, uint32_t length, Stream &stream, uint32_t size) {
+uint16_t UbirchSIM800::HTTP_post(const char *url, uint32_t &length, Stream &stream, uint32_t size) {
     expect_AT_OK(F("+HTTPTERM"));
     delay(100);
 
     if (!expect_AT_OK(F("+HTTPINIT"))) return 1000;
-    if (!expect_AT_OK(F("+HTTPPARA=\"CID\",1"))) return 1001;
-    if (!expect_AT_OK(F("+HTTPPARA=\"UA\",\"UBIRCH#1\""))) return 1002;
-    if (!expect_AT_OK(F("+HTTPPARA=\"REDIR\",1"))) return 1003;
+    if (!expect_AT_OK(F("+HTTPPARA=\"CID\",1"))) return 1101;
+    if (!expect_AT_OK(F("+HTTPPARA=\"UA\",\"UBIRCH#1\""))) return 1102;
+    if (!expect_AT_OK(F("+HTTPPARA=\"REDIR\",1"))) return 1103;
     println_param("AT+HTTPPARA=\"URL\"", url);
-    if (!expect_OK()) return 1003;
+    if (!expect_OK()) return 1110;
 
     print(F("AT+HTTPDATA="));
     print(size);
     print(F(","));
     println((uint32_t) 120000);
 
-    if(!expect(F("DOWNLOAD"))) return 0;
+    if (!expect(F("DOWNLOAD"))) return 0;
 
-    uint8_t *buffer = (uint8_t *)malloc(64);
+    uint8_t *buffer = (uint8_t *) malloc(64);
     uint32_t pos = 0, r = 0;
 
     do {
-        for(r = 0; r < 64; r++) {
+        for (r = 0; r < 64; r++) {
             int c = stream.read();
-            if(c == -1) break;
+            if (c == -1) break;
             _serial.write((uint8_t) c);
         }
 
@@ -363,19 +357,19 @@ uint16_t UbirchSIM800::HTTP_post(const char *url, uint32_t length, Stream &strea
         } else if (pos % (1024) == 0) { PRINT("."); }
 #endif
         pos += r;
-    } while(r == 64);
+    } while (r == 64);
 
     free(buffer);
     PRINTLN("");
     DEBUGLN(pos);
 
-    if(!expect_OK(5000)) return 1005;
+    if (!expect_OK(5000)) return 1005;
 
     if (!expect_AT_OK(F("+HTTPACTION=1"))) return 1004;
 
     // wait for the action to be completed, give it 5s for each try
     uint16_t status;
-    while(!expect_scan(F("+HTTPACTION: 1,%d,%lu"), &status, &length, 5000));
+    while (!expect_scan(F("+HTTPACTION: 1,%d,%lu"), &status, &length, 5000));
 
     return status;
 }
@@ -595,7 +589,7 @@ bool UbirchSIM800::expect_scan(const __FlashStringHelper *pattern, void *ref, vo
     DEBUG(len);
     PRINT(") ");
     DEBUGQLN(buf);
-    return sscanf_P(buf, (char PROGMEM *) pattern, ref, ref1) == 2;
+    return sscanf_P(buf, (const char PROGMEM *) pattern, ref, ref1) == 2;
 }
 
 bool UbirchSIM800::expect_scan(const __FlashStringHelper *pattern, void *ref, void *ref1, void *ref2,
@@ -606,6 +600,6 @@ bool UbirchSIM800::expect_scan(const __FlashStringHelper *pattern, void *ref, vo
     DEBUG(len);
     PRINT(") ");
     DEBUGQLN(buf);
-    return sscanf_P(buf, (char PROGMEM *) pattern, ref, ref1, ref2) == 1;
+    return sscanf_P(buf, (const char PROGMEM *) pattern, ref, ref1, ref2) == 1;
 }
 

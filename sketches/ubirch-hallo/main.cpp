@@ -44,8 +44,6 @@ void setup() {
     if (!sim800.wakeup()) haltError(1);
     sim800.setAPN(F(SIM800_APN), F(SIM800_USER), F(SIM800_PASS));
 
-    disable_watchdog();
-
     PRINTLN("SIM800 waiting for network registration");
     while (!sim800.registerNetwork()) {
         sim800.shutdown();
@@ -54,6 +52,8 @@ void setup() {
     PRINTLN("SIM800 enabling GPRS");
     if (!sim800.enableGPRS()) haltError(3);
     PRINTLN("SIM800 initialized");
+
+    disable_watchdog();
 
     // == SETUP ===============================================
     if (!SD.begin(CARDCS)) {
@@ -73,6 +73,7 @@ void loop() {
     static File file;
     static uint32_t length;
     static uint16_t result;
+    uint8_t retries = 2;
 
     freeMem();
     PRINTLN("MENU [u - upload, d - download, p - play file]");
@@ -85,31 +86,55 @@ void loop() {
         case 'u':
             PRINTLN("sending file");
             SD.cacheClear();
-            file = SD.open("test.ogg", O_RDONLY);
-            result = sim800.HTTP_post("http://api.ubirch.com:23456/upload", length, file, file.fileSize());
-            file.close();
-            switch (result) {
-                case 200:
-                    PRINT("200 OK (");
-                    DEBUG(length);
-                    PRINTLN(" bytes)");
-                    c = 'd';
-                    break;
-                case 601:
-                    PRINTLN("CONNECTION REFUSED");
-                default:
-                    DEBUG(result);
-                    PRINT("??? (");
-                    DEBUG(length);
-                    PRINTLN(" bytes)");
-                    c = 'x';
-            }
+            do {
+                file = SD.open("test.ogg", O_RDONLY);
+                char date[10], time[10], tz[5];
+                sim800.time(date, time, tz);
+                PRINT("START: ");
+                DEBUGLN(time);
+                result = sim800.HTTP_post("http://api.ubirch.com:23456/upload", length, file, file.fileSize());
+                file.close();
+                sim800.time(date, time, tz);
+                PRINT("END  : ");
+                DEBUGLN(time);
+                switch (result) {
+                    case 200:
+                        PRINT("200 OK (");
+                        DEBUG(length);
+                        PRINTLN(" bytes)");
+                        c = 'd';
+                        break;
+                    case 408:
+                        PRINTLN("CONNECTION TIMEOUT");
+                        c = 'x';
+                        break;
+                    case 601:
+                        PRINTLN("CONNECTION REFUSED");
+                        c = 'x';
+                        break;
+                    default:
+                        DEBUG(result);
+                        PRINT("??? (");
+                        DEBUG(length);
+                        PRINTLN(" bytes)");
+                        c = 'x';
+                }
+            } while (c != 'd' && --retries);
+
             break;
         case 'd':
             PRINTLN("receiving file");
             SD.cacheClear();
             file = SD.open("received.ogg", O_WRONLY | O_CREAT | O_TRUNC);
+            char date[10], time[10], tz[5];
+            sim800.time(date, time, tz);
+            PRINT("START: ");
+            DEBUGLN(time);
             result = sim800.HTTP_get("http://api.ubirch.com:23456/download", length, file);
+            file.close();
+            sim800.time(date, time, tz);
+            PRINT("END  : ");
+            DEBUGLN(time);
             file.close();
             switch (result) {
                 case 200:
@@ -150,7 +175,7 @@ void loop() {
 
 #pragma clang diagnostic pop
 
-static void createTestFile() {
+void createTestFile() {
     if (SD.exists("TEST.TXT")) return;
 
     File testFile = SD.open("TEST.TXT", O_CREAT | O_WRONLY | O_TRUNC);
