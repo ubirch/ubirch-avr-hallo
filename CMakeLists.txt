@@ -9,9 +9,6 @@ set(CMAKE_TOOLCHAIN_FILE cmake/avr-arduino-toolchain.cmake)
 # if you want to compile Arduino sketches, set this to the Arduino SDK dir (1.6.5)
 set(ARDUINO_SDK_PATH "/Applications/Arduino.app/Contents/Java" CACHE STRING "Arduino SDK Path")
 
-# project name and code types we use
-project(ubirch C CXX ASM)
-
 # necessary settings for the chip we use
 set(MCU atmega328p)
 set(F_CPU 16000000)
@@ -25,6 +22,12 @@ set(PROGRAMMER arduino)
 
 # only needed if we do floating point math and want to print floats with printf
 #set(EXTRA_LIBS "-lm -lprintf_flt")
+# show a list of libs linked
+set(EXTRA_LIBS "-Wl,--trace")
+
+# project name and code types we use
+project(ubirch C CXX ASM)
+
 
 # add the sketches directory (contains sketch directories and a "libraries" dir where dependent
 # libs are extracted
