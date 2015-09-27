@@ -20,7 +20,7 @@ Written to the sounds of
 You will need to refer to @chaosblog's wiring sheet for the pins used on the ubirch #1.
 
 - default pins (SPI)
-    * VCC -> any power pin (i used I2C1 #3) 
+    * VCC -> any power pin (DIGITAL #3) 
     * GND -> ISP #5 GND
     * CLK -> ISP #3 SCK
     * MISO -> ISP #4 MISO

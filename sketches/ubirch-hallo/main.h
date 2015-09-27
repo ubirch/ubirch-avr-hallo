@@ -8,6 +8,11 @@
 // == pins used for the Audio Trinket ==
 
 // VS1053 Breakout settings
+// VCC/3V3
+// GND
+// MOSI
+// MISO
+// SCLK
 #define DREQ            9       // VS1053 Data request, ideally an Interrupt pin
 #define CARDCS          10     // Card chip select pin
 #define BREAKOUT_RESET  SDA      // VS1053 reset pin (output)
