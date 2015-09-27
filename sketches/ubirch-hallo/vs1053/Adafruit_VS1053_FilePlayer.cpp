@@ -159,6 +159,7 @@ Adafruit_VS1053_FilePlayer::Adafruit_VS1053_FilePlayer(
 
     playingMusic = false;
 
+    _cardCS = (uint8_t) cardcs;
     // Set the card to be disabled while we get the VS1053 up
     pinMode(_cardCS, OUTPUT);
     digitalWrite(_cardCS, HIGH);

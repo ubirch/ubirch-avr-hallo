@@ -40,14 +40,14 @@ extern void *__brkval;
 void freeMem();
 
 // blink regularly when no error halt was issued
-void haltOK();
+static void haltOK();
 
 // send blink signals for error codes and never return
-void haltError(uint8_t code);
+static void haltError(uint8_t code);
 
 // create our test file
-void createTestFile();
+static void createTestFile();
 
-void blink(uint8_t n, unsigned long speed);
+static void blink(uint8_t n, unsigned long speed);
 
 #endif // _UBIRCH_MAIN_H_
