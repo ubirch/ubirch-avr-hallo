@@ -150,7 +150,7 @@ void loop() {
 
 #pragma clang diagnostic pop
 
-void createTestFile() {
+static void createTestFile() {
     if (SD.exists("TEST.TXT")) return;
 
     File testFile = SD.open("TEST.TXT", O_CREAT | O_WRONLY | O_TRUNC);
@@ -175,7 +175,7 @@ void createTestFile() {
     PRINTLN(" bytes");
 }
 
-void blink(uint8_t n, unsigned long speed) {
+static void blink(uint8_t n, unsigned long speed) {
     digitalWrite(UBIRCH_NO1_PIN_LED, LOW);
     for (int i = n * 2; i > 0; i--) {
         PRINT(".");
@@ -186,7 +186,7 @@ void blink(uint8_t n, unsigned long speed) {
     PRINTLN("");
 }
 
-void freeMem() {
+static void freeMem() {
     PRINT("Free memory = ");
     DEBUGLN(SP - (__brkval ? (uint16_t) __brkval : (uint16_t) &__heap_start));
 }
@@ -195,7 +195,7 @@ void freeMem() {
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
 
 // send blink signals for error codes and never return
-void haltError(uint8_t code) {
+static void haltError(uint8_t code) {
     PRINT("ERROR: ");
     DEBUGLN(code);
     pinMode(UBIRCH_NO1_PIN_LED, OUTPUT);
@@ -212,7 +212,7 @@ void haltError(uint8_t code) {
 }
 
 
-void haltOK() {
+static void haltOK() {
     pinMode(UBIRCH_NO1_PIN_LED, OUTPUT);
     for (; ;) {
         enable_led();
