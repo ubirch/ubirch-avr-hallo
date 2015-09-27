@@ -119,18 +119,19 @@ protected:
     // eat input until no more is available, basically sucks up echos and left over status messages
     void eatEcho();
 
+    // send a command (without AT) and expect it to return a certain string
+    bool expect_AT(const __FlashStringHelper *cmd, const __FlashStringHelper *expected,
+                   uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
+
+    // send command (without AT) and expect OK
+    bool expect_AT_OK(const __FlashStringHelper *cmd, uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
+
     // expect the string to be sent
     bool expect(const __FlashStringHelper *expected, uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
-
-    // send a command and expect it to return a certain string
-    bool expect(const __FlashStringHelper *cmd, const __FlashStringHelper *expected,
-                uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
 
     // expect OK
     bool expect_OK(uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
 
-    // send command and expect OK
-    bool expect_OK(const __FlashStringHelper *cmd, uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
 
     // expect a certain pattern with one value to be returned, ref is a pointer to the value
     bool expect_scan(const __FlashStringHelper *pattern, void *ref,
@@ -156,32 +157,6 @@ private:
     void println(const char *s);
 
     void println(uint32_t s);
-
 };
-
-// MODEM commands
-const char *const C_AT PROGMEM = "AT";
-
-const char *const R_OK PROGMEM = "OK";
-
-const char *const C_ECHO_OFF PROGMEM = "ATE0";
-
-const char *const C_HW_FLOW_CONTROL_OFF PROGMEM = "AT+IFC=0,0";
-const char *const C_UNSOLICITED_URC_OFF PROGMEM = "AT+CIURC=0";
-
-const char *const C_POWER_DOWN PROGMEM = "AT+CPOWD=1";
-const char *const R_POWER_DOWN PROGMEM = "NORMAL POWER DOWN";
-
-const char *const C_NETWORK_REGISTER PROGMEM = "AT+CREG?";
-const char *const R_NETWORK_REGISTER PROGMEM = "+CREG: 0,%d";
-
-const char *const C_QUERY_RTC PROGMEM = "AT+CCLK?";
-const char *const R_QUERY_RTC PROGMEM = "+CCLK: \"%8s,%8s%3s\"";
-
-const char *const C_IP_CLOSE PROGMEM = "AT+CIPSHUT";
-const char *const R_IP_CLOSE PROGMEM = "SHUT OK";
-
-const char *const C_IP_MULTIPLEX PROGMEM = "AT+CIPMUX=1";
-const char *const C_IP_RCV_MANUAL PROGMEM = "AT+CIPRXGET=1";
 
 #endif //UBIRCH_SIM800_H

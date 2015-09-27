@@ -48,8 +48,6 @@ extern MinimumSerial minimumSerial;
 
 #define println_param(prefix, p) print(F(prefix)); print(F(",\"")); print(p); println(F("\""));
 
-#define P(s) (reinterpret_cast<const __FlashStringHelper *>(s))
-
 UbirchSIM800::UbirchSIM800() {
 }
 
@@ -71,13 +69,13 @@ bool UbirchSIM800::reset(uint32_t serialSpeed) {
 
     while (_serial.available()) _serial.read();
 
-    expect_OK(P(C_AT));
-    expect_OK(P(C_AT));
-    expect_OK(P(C_AT));
-    bool ok = expect_OK(P(C_ECHO_OFF));
+    expect_AT_OK(F(""));
+    expect_AT_OK(F(""));
+    expect_AT_OK(F(""));
+    bool ok = expect_AT_OK(F("E0"));
 
-    expect_OK(P(C_HW_FLOW_CONTROL_OFF)); // No hardware flow control
-    expect_OK(P(C_UNSOLICITED_URC_OFF)); // No "Call Ready"
+    expect_AT_OK(F("+IFC=0,0")); // No hardware flow control
+    expect_AT_OK(F("+CIURC=0")); // No "Call Ready"
 
     while (_serial.available()) _serial.read();
 
@@ -92,13 +90,13 @@ void UbirchSIM800::setAPN(const __FlashStringHelper *apn, const __FlashStringHel
 }
 
 bool UbirchSIM800::time(char *date, char *time, char *tz) {
-    println(P(C_QUERY_RTC));
+    println(F("AT+CCLK?"));
 
     char response[30] = "";
     readline(response, 30, DEFAULT_SERIAL_TIMEOUT);
 
     //+CCLK: "04/01/01,00:41:47+08"
-    int m = sscanf_P(response, R_QUERY_RTC, date, time, tz);
+    int m = sscanf_P(response, "+CCLK: \"%8s,%8s%3s\"", date, time, tz);
 
     return m == 3;
 }
@@ -108,7 +106,7 @@ bool UbirchSIM800::wakeup() {
     PRINTLN("!!! SIM800 wakeup");
 
     // check if the chip is already awake, otherwise start wakeup
-    if (!expect_OK(P(C_AT), 5000)) {
+    if (!expect_AT_OK(F(""), 5000)) {
         PRINTLN("!!! using PWRKEY wakeup procedure");
         pinMode(SIM800_KEY, OUTPUT);
         do {
@@ -133,7 +131,7 @@ bool UbirchSIM800::shutdown() {
     PRINTLN("!!! SIM800 shutdown");
 
     disableGPRS();
-    if (!expect(P(C_POWER_DOWN), P(R_POWER_DOWN), 5000)) {
+    if (!expect_AT(F("+CPOWD=1"), F("NORMAL POWER DOWN"), 5000)) {
         if (digitalRead(SIM800_PS) == HIGH) {
             PRINTLN("shutdown() using PWRKEY, AT+CPOWD=1 failed");
             pinMode(SIM800_KEY, OUTPUT);
@@ -152,11 +150,11 @@ bool UbirchSIM800::shutdown() {
 bool UbirchSIM800::registerNetwork(uint16_t timeout) {
     PRINTLN("!!! waiting for network registration");
     uint8_t n = 0;
-    expect_OK(P(C_AT));
+    expect_AT_OK(F(""));
     timeout = timeout / 1000;
     while (timeout--) {
-        println(P(C_NETWORK_REGISTER));
-        expect_scan(P(R_NETWORK_REGISTER), &n);
+        println(F("AT+CREG?"));
+        expect_scan(F("+CREG: 0,%d"), &n);
         switch (n) {
             case 0:
                 PRINTLN("_");
@@ -187,18 +185,18 @@ bool UbirchSIM800::registerNetwork(uint16_t timeout) {
 }
 
 bool UbirchSIM800::enableGPRS(uint16_t timeout) {
-    expect(P(C_IP_CLOSE), P(R_IP_CLOSE), 5000);
-    expect_OK(P(C_IP_MULTIPLEX)); // enable multiplex mode
-    expect_OK(P(C_IP_RCV_MANUAL)); // we will receive manually
+    expect_AT(F("+CIPSHUT"), F("SHUT OK"), 5000);
+    expect_AT_OK(F("+CIPMUX=1")); // enable multiplex mode
+    expect_AT_OK(F("+CIPRXGET=1")); // we will receive manually
 
     bool attached = false;
     while (!attached && timeout--) {
-        attached = expect_OK(F("AT+CGATT=1"), 10000);
+        attached = expect_AT_OK(F("+CGATT=1"), 10000);
         delay(1000);
     }
     if (!attached) return false;
 
-    if (!expect_OK(F("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\""), 10000)) return false;
+    if (!expect_AT_OK(F("+SAPBR=3,1,\"CONTYPE\",\"GPRS\""), 10000)) return false;
 
     // set bearer profile access point name
     if (_apn) {
@@ -222,7 +220,7 @@ bool UbirchSIM800::enableGPRS(uint16_t timeout) {
     }
 
     // open GPRS context
-    expect_OK(F("AT+SAPBR=1,1"), 30000);
+    expect_AT_OK(F("+SAPBR=1,1"), 30000);
 
     uint16_t gprsState;
     do {
@@ -235,24 +233,24 @@ bool UbirchSIM800::enableGPRS(uint16_t timeout) {
 }
 
 bool UbirchSIM800::disableGPRS() {
-    expect(F("AT+CIPSHUT"), F("SHUT OK"));
-    if (!expect_OK(F("AT+SAPBR=0,1"))) return false;
+    expect_AT(F("+CIPSHUT"), F("SHUT OK"));
+    if (!expect_AT_OK(F("+SAPBR=0,1"))) return false;
 
-    return expect_OK(F("AT+CGATT=0"));
+    return expect_AT_OK(F("+CGATT=0"));
 }
 
 uint16_t UbirchSIM800::HTTP_get(const char *url, uint32_t &length) {
-    expect_OK(F("AT+HTTPTERM"));
+    expect_AT_OK(F("+HTTPTERM"));
     delay(100);
 
-    if (!expect_OK(F("AT+HTTPINIT"))) return 1000;
-    if (!expect_OK(F("AT+HTTPPARA=\"CID\",1"))) return 1001;
-    if (!expect_OK(F("AT+HTTPPARA=\"UA\",\"UBIRCH#1\""))) return 1002;
-    if (!expect_OK(F("AT+HTTPPARA=\"REDIR\",1"))) return 1003;
+    if (!expect_AT_OK(F("+HTTPINIT"))) return 1000;
+    if (!expect_AT_OK(F("+HTTPPARA=\"CID\",1"))) return 1001;
+    if (!expect_AT_OK(F("+HTTPPARA=\"UA\",\"UBIRCH#1\""))) return 1002;
+    if (!expect_AT_OK(F("+HTTPPARA=\"REDIR\",1"))) return 1003;
     println_param("AT+HTTPPARA=\"URL\"", url);
     if (!expect_OK()) return 1003;
 
-    if (!expect_OK(F("AT+HTTPACTION=0"))) return 1004;
+    if (!expect_AT_OK(F("+HTTPACTION=0"))) return 1004;
 
     uint16_t status;
     expect_scan(F("+HTTPACTION: 0,%d,%lu"), &status, &length, 60000);
@@ -306,17 +304,17 @@ size_t UbirchSIM800::HTTP_get_read(char *buffer, uint32_t start, size_t length) 
 }
 
 uint16_t UbirchSIM800::HTTP_post(const char *url, uint32_t &length) {
-    expect_OK(F("AT+HTTPTERM"));
+    expect_AT_OK(F("+HTTPTERM"));
     delay(100);
 
-    if (!expect_OK(F("AT+HTTPINIT"))) return 1000;
-    if (!expect_OK(F("AT+HTTPPARA=\"CID\",1"))) return 1001;
-    if (!expect_OK(F("AT+HTTPPARA=\"UA\",\"UBIRCH#1\""))) return 1002;
-    if (!expect_OK(F("AT+HTTPPARA=\"REDIR\",1"))) return 1003;
+    if (!expect_AT_OK(F("+HTTPINIT"))) return 1000;
+    if (!expect_AT_OK(F("+HTTPPARA=\"CID\",1"))) return 1001;
+    if (!expect_AT_OK(F("+HTTPPARA=\"UA\",\"UBIRCH#1\""))) return 1002;
+    if (!expect_AT_OK(F("+HTTPPARA=\"REDIR\",1"))) return 1003;
     println_param("AT+HTTPPARA=\"URL\"", url);
     if (!expect_OK()) return 1003;
 
-    if (!expect_OK(F("AT+HTTPACTION=1"))) return 1004;
+    if (!expect_AT_OK(F("+HTTPACTION=1"))) return 1004;
 
     uint16_t status;
     expect_scan(F("+HTTPACTION: 0,%d,%lu"), &status, &length, 60000);
@@ -325,13 +323,13 @@ uint16_t UbirchSIM800::HTTP_post(const char *url, uint32_t &length) {
 }
 
 uint16_t UbirchSIM800::HTTP_post(const char *url, uint32_t length, Stream &stream, uint32_t size) {
-    expect_OK(F("AT+HTTPTERM"));
+    expect_AT_OK(F("+HTTPTERM"));
     delay(100);
 
-    if (!expect_OK(F("AT+HTTPINIT"))) return 1000;
-    if (!expect_OK(F("AT+HTTPPARA=\"CID\",1"))) return 1001;
-    if (!expect_OK(F("AT+HTTPPARA=\"UA\",\"UBIRCH#1\""))) return 1002;
-    if (!expect_OK(F("AT+HTTPPARA=\"REDIR\",1"))) return 1003;
+    if (!expect_AT_OK(F("+HTTPINIT"))) return 1000;
+    if (!expect_AT_OK(F("+HTTPPARA=\"CID\",1"))) return 1001;
+    if (!expect_AT_OK(F("+HTTPPARA=\"UA\",\"UBIRCH#1\""))) return 1002;
+    if (!expect_AT_OK(F("+HTTPPARA=\"REDIR\",1"))) return 1003;
     println_param("AT+HTTPPARA=\"URL\"", url);
     if (!expect_OK()) return 1003;
 
@@ -373,7 +371,7 @@ uint16_t UbirchSIM800::HTTP_post(const char *url, uint32_t length, Stream &strea
 
     if(!expect_OK(5000)) return 1005;
 
-    if (!expect_OK(F("AT+HTTPACTION=1"))) return 1004;
+    if (!expect_AT_OK(F("+HTTPACTION=1"))) return 1004;
 
     // wait for the action to be completed, give it 5s for each try
     uint16_t status;
@@ -394,9 +392,9 @@ inline size_t UbirchSIM800::read(char *buffer, size_t length) {
 }
 
 bool UbirchSIM800::connect(const char *address, uint16_t port, uint16_t timeout) {
-    if (!expect(F("AT+CIPSHUT"), F("SHUT OK"))) return false;
-    if (!expect_OK(F("AT+CMEE=2"))) return false;
-    if (!expect_OK(F("AT+CIPQSEND=1"))) return false;
+    if (!expect_AT(F("+CIPSHUT"), F("SHUT OK"))) return false;
+    if (!expect_AT_OK(F("+CMEE=2"))) return false;
+    if (!expect_AT_OK(F("+CIPQSEND=1"))) return false;
 
     // bring connection up, force it
     print(F("AT+CSTT=\""));
@@ -404,7 +402,7 @@ bool UbirchSIM800::connect(const char *address, uint16_t port, uint16_t timeout)
     println(F("\""));
     if (!expect_OK()) return false;
 
-    if (!expect_OK(F("AT+CIICR"))) return false;
+    if (!expect_AT_OK(F("+CIICR"))) return false;
 
     // try five times to get an IP address
     bool connected = false;
@@ -441,7 +439,7 @@ bool UbirchSIM800::status() {
 }
 
 bool UbirchSIM800::disconnect() {
-    return expect_OK(F("AT+CIPCLOSE=0"));
+    return expect_AT_OK(F("+CIPCLOSE=0"));
 };
 
 bool UbirchSIM800::send(char *buffer, size_t size, size_t &accepted) {
@@ -556,6 +554,16 @@ void UbirchSIM800::println(const char *s) {
     _serial.println();
 }
 
+bool UbirchSIM800::expect_AT(const __FlashStringHelper *cmd, const __FlashStringHelper *expected, uint16_t timeout) {
+    print(F("AT"));
+    println(cmd);
+    return expect(expected, timeout);
+}
+
+bool UbirchSIM800::expect_AT_OK(const __FlashStringHelper *cmd, uint16_t timeout) {
+    return expect_AT(cmd, F("OK"), timeout);
+}
+
 bool UbirchSIM800::expect(const __FlashStringHelper *expected, uint16_t timeout) {
     char buf[100];
     unsigned int len = readline(buf, 100, timeout);
@@ -566,17 +574,8 @@ bool UbirchSIM800::expect(const __FlashStringHelper *expected, uint16_t timeout)
     return strcmp_P(buf, (char PROGMEM *) expected) == 0;
 }
 
-bool UbirchSIM800::expect(const __FlashStringHelper *cmd, const __FlashStringHelper *expected, uint16_t timeout) {
-    println(cmd);
-    return expect(expected, timeout);
-}
-
 bool UbirchSIM800::expect_OK(uint16_t timeout) {
-    return expect(P(R_OK), timeout);
-}
-
-bool UbirchSIM800::expect_OK(const __FlashStringHelper *cmd, uint16_t timeout) {
-    return expect(cmd, P(R_OK), timeout);
+    return expect(F("OK"), timeout);
 }
 
 bool UbirchSIM800::expect_scan(const __FlashStringHelper *pattern, void *ref, uint16_t timeout) {
