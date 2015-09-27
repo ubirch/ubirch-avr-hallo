@@ -11,9 +11,9 @@ Written to the sounds of
 
 # Adafruit Trinket Audio
 
+- [MPR121 capacitive sensor breakout](http://adafru.it/1982)
 - [Adafruit MicroSD/Audio Breakout](http://adafru.it/1381)
 - [SIM800 cell-network chip](http://adafru.it/fix2468) (similar, onboard ubirch #1) 
-- ...
 
 ## Wiring
 
@@ -25,7 +25,7 @@ You will need to refer to @chaosblog's wiring sheet for the pins used on the ubi
     * CLK -> ISP #3 SCK
     * MISO -> ISP #4 MISO
     * MOSI -> ISP #2 D.I2C (MOSI)
-
+       
 - special pins
     * RST -> unconnected (works apparently)
     * CS -> ADC #2 (A1)
