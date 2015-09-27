@@ -1,7 +1,7 @@
 /**
- * UbirchSIM800 is a class that extends the FONA code from Adafruit
- * to add support for shutdown and wakeup of the chip to make it
- * reliable to work with.
+ * UbirchSIM800 is a class interfaces with the SIM800 chip to
+ * provide functionality for uploading and downloading data via
+ * the mobile phone network.
  *
  * @author Matthias L. Jugel
  *
