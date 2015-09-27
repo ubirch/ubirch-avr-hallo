@@ -13,11 +13,11 @@
 // MOSI
 // MISO
 // SCLK
-#define DREQ            9       // VS1053 Data request, ideally an Interrupt pin
+#define DREQ            9      // VS1053 Data request, ideally an Interrupt pin
 #define CARDCS          10     // Card chip select pin
-#define BREAKOUT_RESET  SDA      // VS1053 reset pin (output)
+#define BREAKOUT_RESET  -1     // VS1053 reset pin (output)
 #define BREAKOUT_CS     A1     // VS1053 chip select pin (output)
-#define BREAKOUT_DCS    A0      // VS1053 Data/command select pin (output)
+#define BREAKOUT_DCS    A0     // VS1053 Data/command select pin (output)
 
 #define UBIRCH_NO1_PIN_LED      13
 #define UBIRCH_NO1_PIN_WATCHDOG 6

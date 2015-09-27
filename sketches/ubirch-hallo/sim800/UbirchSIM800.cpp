@@ -261,10 +261,10 @@ uint16_t UbirchSIM800::HTTP_get(const char *url, uint32_t &length, Stream &strea
 
     if (length == 0) return status;
 
-    char *buffer = (char *) malloc(64);
+    char *buffer = (char *) malloc(SIM800_BUFSIZE);
     uint32_t pos = 0, r = 0;
     do {
-        r = HTTP_get_read(buffer, pos, 64);
+        r = HTTP_get_read(buffer, pos, SIM800_BUFSIZE);
         if ((pos % 10240) == 0) {
             DEBUG(pos);
             PRINTLN("");
@@ -334,17 +334,17 @@ uint16_t UbirchSIM800::HTTP_post(const char *url, uint32_t &length, Stream &stre
 
     if (!expect(F("DOWNLOAD"))) return 0;
 
-    uint8_t *buffer = (uint8_t *) malloc(64);
+    uint8_t *buffer = (uint8_t *) malloc(SIM800_BUFSIZE);
     uint32_t pos = 0, r = 0;
 
     do {
-        for (r = 0; r < 64; r++) {
+        for (r = 0; r < SIM800_BUFSIZE; r++) {
             int c = stream.read();
             if (c == -1) break;
             _serial.write((uint8_t) c);
         }
 
-        if (r < 64) {
+        if (r < SIM800_BUFSIZE) {
             PRINTLN("EOF");
             break;
         }
@@ -357,7 +357,7 @@ uint16_t UbirchSIM800::HTTP_post(const char *url, uint32_t &length, Stream &stre
         } else if (pos % (1024) == 0) { PRINT("."); }
 #endif
         pos += r;
-    } while (r == 64);
+    } while (r == SIM800_BUFSIZE);
 
     free(buffer);
     PRINTLN("");

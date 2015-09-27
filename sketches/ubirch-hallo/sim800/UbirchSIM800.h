@@ -33,7 +33,9 @@
 #define SIM800_KEY  7
 #define SIM800_PS   8
 
-#define DEFAULT_SERIAL_TIMEOUT 1000
+#define SIM800_CMD_TIMEOUT 30000
+#define SIM800_SERIAL_TIMEOUT 1000
+#define SIM800_BUFSIZE 64
 
 class UbirchSIM800 {
 
@@ -56,10 +58,10 @@ public:
     bool wakeup();
 
     // wait for network registration
-    bool registerNetwork(uint16_t timeout = 30000);
+    bool registerNetwork(uint16_t timeout = SIM800_CMD_TIMEOUT);
 
     // enable GPRS
-    bool enableGPRS(uint16_t timeout = 30000);
+    bool enableGPRS(uint16_t timeout = SIM800_CMD_TIMEOUT);
 
     // disable GPRS
     bool disableGPRS();
@@ -71,7 +73,7 @@ public:
     bool status();
 
     // connect a pure network connection, may send() data after it is opened
-    bool connect(const char *address, uint16_t port, uint16_t timeout = 30000);
+    bool connect(const char *address, uint16_t port, uint16_t timeout = SIM800_CMD_TIMEOUT);
 
     // disconnect a pure network connection
     bool disconnect();
@@ -121,28 +123,28 @@ protected:
 
     // send a command (without AT) and expect it to return a certain string
     bool expect_AT(const __FlashStringHelper *cmd, const __FlashStringHelper *expected,
-                   uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
+                   uint16_t timeout = SIM800_SERIAL_TIMEOUT);
 
     // send command (without AT) and expect OK
-    bool expect_AT_OK(const __FlashStringHelper *cmd, uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
+    bool expect_AT_OK(const __FlashStringHelper *cmd, uint16_t timeout = SIM800_SERIAL_TIMEOUT);
 
     // expect the string to be sent
-    bool expect(const __FlashStringHelper *expected, uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
+    bool expect(const __FlashStringHelper *expected, uint16_t timeout = SIM800_SERIAL_TIMEOUT);
 
     // expect OK
-    bool expect_OK(uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
+    bool expect_OK(uint16_t timeout = SIM800_SERIAL_TIMEOUT);
 
 
     // expect a certain pattern with one value to be returned, ref is a pointer to the value
     bool expect_scan(const __FlashStringHelper *pattern, void *ref,
-                     uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
+                     uint16_t timeout = SIM800_SERIAL_TIMEOUT);
 
     // expect a certain pattern with two values to be returned, ref, ref1 are pointer to the values
     bool expect_scan(const __FlashStringHelper *pattern, void *ref, void *ref1,
-                     uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
+                     uint16_t timeout = SIM800_SERIAL_TIMEOUT);
 
     bool expect_scan(const __FlashStringHelper *pattern, void *ref, void *ref1, void *ref2,
-                     uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
+                     uint16_t timeout = SIM800_SERIAL_TIMEOUT);
 
 private:
 
