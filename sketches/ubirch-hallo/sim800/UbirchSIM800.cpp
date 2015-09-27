@@ -187,9 +187,9 @@ bool UbirchSIM800::registerNetwork(uint16_t timeout) {
 }
 
 bool UbirchSIM800::enableGPRS(uint16_t timeout) {
-    expect(F("AT+CIPSHUT"), F("SHUT OK"), 5000);
-    expect_OK(F("AT+CIPMUX=1")); // enable multiplex mode
-    expect_OK(F("AT+CIPRXGET=1")); // we will receive manually
+    expect(P(C_IP_CLOSE), P(R_IP_CLOSE), 5000);
+    expect_OK(P(C_IP_MULTIPLEX)); // enable multiplex mode
+    expect_OK(P(C_IP_RCV_MANUAL)); // we will receive manually
 
     bool attached = false;
     while (!attached && timeout--) {
@@ -609,3 +609,4 @@ bool UbirchSIM800::expect_scan(const __FlashStringHelper *pattern, void *ref, vo
     DEBUGQLN(buf);
     return sscanf_P(buf, (char PROGMEM *) pattern, ref, ref1, ref2) == 1;
 }
+

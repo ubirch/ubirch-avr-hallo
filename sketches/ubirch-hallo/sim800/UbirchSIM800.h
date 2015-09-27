@@ -143,25 +143,6 @@ protected:
     bool expect_scan(const __FlashStringHelper *pattern, void *ref, void *ref1, void *ref2,
                      uint16_t timeout = DEFAULT_SERIAL_TIMEOUT);
 
-    // MODEM commands
-    const char *C_AT PROGMEM = "AT";
-    const char *C_ECHO_OFF PROGMEM = "ATE0";
-
-    const char *C_HW_FLOW_CONTROL_OFF PROGMEM = "AT+IFC=0,0";
-    const char *C_UNSOLICITED_URC_OFF PROGMEM = "AT+CIURC=0";
-
-    const char *C_POWER_DOWN PROGMEM = "AT+CPOWD=1";
-    const char *R_POWER_DOWN PROGMEM = "NORMAL POWER DOWN";
-
-    const char *C_NETWORK_REGISTER PROGMEM = "AT+CREG?";
-    const char *R_NETWORK_REGISTER PROGMEM = "+CREG: 0,%d";
-
-    const char *C_QUERY_RTC PROGMEM = "AT+CCLK?";
-    const char *R_QUERY_RTC PROGMEM = "+CCLK: \"%8s,%8s%3s\"";
-
-    const char *R_OK PROGMEM = "OK";
-
-
 private:
 
     void print(const __FlashStringHelper *s);
@@ -178,4 +159,29 @@ private:
 
 };
 
-#endif //UBIRCH_FONA_H
+// MODEM commands
+const char *const C_AT PROGMEM = "AT";
+
+const char *const R_OK PROGMEM = "OK";
+
+const char *const C_ECHO_OFF PROGMEM = "ATE0";
+
+const char *const C_HW_FLOW_CONTROL_OFF PROGMEM = "AT+IFC=0,0";
+const char *const C_UNSOLICITED_URC_OFF PROGMEM = "AT+CIURC=0";
+
+const char *const C_POWER_DOWN PROGMEM = "AT+CPOWD=1";
+const char *const R_POWER_DOWN PROGMEM = "NORMAL POWER DOWN";
+
+const char *const C_NETWORK_REGISTER PROGMEM = "AT+CREG?";
+const char *const R_NETWORK_REGISTER PROGMEM = "+CREG: 0,%d";
+
+const char *const C_QUERY_RTC PROGMEM = "AT+CCLK?";
+const char *const R_QUERY_RTC PROGMEM = "+CCLK: \"%8s,%8s%3s\"";
+
+const char *const C_IP_CLOSE PROGMEM = "AT+CIPSHUT";
+const char *const R_IP_CLOSE PROGMEM = "SHUT OK";
+
+const char *const C_IP_MULTIPLEX PROGMEM = "AT+CIPMUX=1";
+const char *const C_IP_RCV_MANUAL PROGMEM = "AT+CIPRXGET=1";
+
+#endif //UBIRCH_SIM800_H

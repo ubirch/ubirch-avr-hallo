@@ -33,7 +33,7 @@ static Adafruit_VS1053_FilePlayer vs1053 =
 
 void setup() {
     // configure the initial values for UART and the connection to SIM800
-    minimumSerial.begin(BAUD);
+    minimumSerial.begin((uint32_t) BAUD);
 
     // initially disable the watchdog, it confused people
     enable_watchdog();
@@ -95,6 +95,8 @@ void loop() {
                     PRINTLN(" bytes)");
                     c = 'd';
                     break;
+                case 601:
+                    PRINTLN("CONNECTION REFUSED");
                 default:
                     DEBUG(result);
                     PRINT("??? (");
@@ -116,6 +118,8 @@ void loop() {
                     PRINTLN(" bytes)");
                     c = 'p';
                     break;
+                case 601:
+                    PRINTLN("CONNECTION REFUSED");
                 default:
                     DEBUG(result);
                     PRINT("??? (");
