@@ -242,11 +242,11 @@ uint16_t UbirchSIM800::HTTP_get(const char *url, uint32_t &length) {
     delay(100);
 
     if (!expect_AT_OK(F("+HTTPINIT"))) return 1000;
-    if (!expect_AT_OK(F("+HTTPPARA=\"CID\",1"))) return 1001;
-    if (!expect_AT_OK(F("+HTTPPARA=\"UA\",\"UBIRCH#1\""))) return 1002;
-    if (!expect_AT_OK(F("+HTTPPARA=\"REDIR\",1"))) return 1003;
+    if (!expect_AT_OK(F("+HTTPPARA=\"CID\",1"))) return 1101;
+    if (!expect_AT_OK(F("+HTTPPARA=\"UA\",\"UBIRCH#1\""))) return 1102;
+    if (!expect_AT_OK(F("+HTTPPARA=\"REDIR\",1"))) return 1103;
     println_param("AT+HTTPPARA=\"URL\"", url);
-    if (!expect_OK()) return 1003;
+    if (!expect_OK()) return 1110;
 
     if (!expect_AT_OK(F("+HTTPACTION=0"))) return 1004;
 
