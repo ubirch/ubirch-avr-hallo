@@ -57,7 +57,7 @@
  * find(), findUntil(), readBytesUntil(), readString(), readStringUntil(),
  * parseInt(), and parseFloat().
  */
-#define ARDUINO_FILE_USES_STREAM 1
+#define ARDUINO_FILE_USES_STREAM 0
 //------------------------------------------------------------------------------
 /**
  * Determine the default SPI configuration.

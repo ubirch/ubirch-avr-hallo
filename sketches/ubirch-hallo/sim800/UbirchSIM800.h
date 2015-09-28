@@ -25,6 +25,8 @@
 // SIM800H settings
 #include <stdint.h>
 #include <SoftwareSerial.h>
+#include <FatFile.h>
+#include <ArduinoFiles.h>
 
 #define SIM800_BAUD 57600
 #define SIM800_RX   2
@@ -94,7 +96,7 @@ public:
     uint16_t HTTP_get(const char *url, uint32_t &length);
 
     // HTTP GET request, stores the received data in the stream (if length is > 0)
-    uint16_t HTTP_get(const char *url, uint32_t &length, Stream &stream);
+    uint16_t HTTP_get(const char *url, uint32_t &length, File &file);
 
     // manually read the payload after a GET request, returns the amount read, call multiple times to read whole
     size_t HTTP_get_read(char *buffer, uint32_t start, size_t length);
@@ -103,7 +105,7 @@ public:
     uint16_t HTTP_post(const char *url, uint32_t &length);
 
     // HTTP HTTP_post request, reads the data from the stream and returns the result
-    uint16_t HTTP_post(const char *url, uint32_t &length, Stream &stream, uint32_t size);
+    uint16_t HTTP_post(const char *url, uint32_t &length, File &file, uint32_t size);
 
 protected:
     SoftwareSerial _serial = SoftwareSerial(SIM800_TX, SIM800_RX);
