@@ -25,8 +25,13 @@
 // SIM800H settings
 #include <stdint.h>
 #include <SoftwareSerial.h>
-#include <FatFile.h>
+#if ARDUINO_FILE_USES_STREAM == 0
 #include <ArduinoFiles.h>
+#define STREAM File
+#else
+#include <Stream.h>
+#define STREAM Stream
+#endif
 
 #define SIM800_BAUD 57600
 #define SIM800_RX   2
@@ -46,6 +51,8 @@ public:
 
     // stores apn, username and password for the time beeing
     void setAPN(const __FlashStringHelper *apn, const __FlashStringHelper *user, const __FlashStringHelper *pass);
+
+    bool unlock(const __FlashStringHelper *pin);
 
     // reset the SIM800
     bool reset();
@@ -96,7 +103,7 @@ public:
     uint16_t HTTP_get(const char *url, uint32_t &length);
 
     // HTTP GET request, stores the received data in the stream (if length is > 0)
-    uint16_t HTTP_get(const char *url, uint32_t &length, File &file);
+    uint16_t HTTP_get(const char *url, uint32_t &length, STREAM &file);
 
     // manually read the payload after a GET request, returns the amount read, call multiple times to read whole
     size_t HTTP_get_read(char *buffer, uint32_t start, size_t length);
@@ -105,7 +112,7 @@ public:
     uint16_t HTTP_post(const char *url, uint32_t &length);
 
     // HTTP HTTP_post request, reads the data from the stream and returns the result
-    uint16_t HTTP_post(const char *url, uint32_t &length, File &file, uint32_t size);
+    uint16_t HTTP_post(const char *url, uint32_t &length, STREAM &file, uint32_t size);
 
 protected:
     SoftwareSerial _serial = SoftwareSerial(SIM800_TX, SIM800_RX);

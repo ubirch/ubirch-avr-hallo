@@ -23,8 +23,6 @@
 
 #include <Arduino.h>
 #include <MinimumSerial.h>
-#include <FatFile.h>
-#include <ArduinoFiles.h>
 #include "UbirchSIM800.h"
 
 extern MinimumSerial minimumSerial;
@@ -90,6 +88,13 @@ void UbirchSIM800::setAPN(const __FlashStringHelper *apn, const __FlashStringHel
     _user = user;
     _pass = pass;
 }
+
+bool UbirchSIM800::unlock(const __FlashStringHelper *pin) {
+    print(F("+CPIN="));
+    println(pin);
+    return expect_OK();
+}
+
 
 bool UbirchSIM800::time(char *date, char *time, char *tz) {
     println(F("AT+CCLK?"));
@@ -256,7 +261,7 @@ uint16_t UbirchSIM800::HTTP_get(const char *url, uint32_t &length) {
     return status;
 }
 
-uint16_t UbirchSIM800::HTTP_get(const char *url, uint32_t &length, File &file) {
+uint16_t UbirchSIM800::HTTP_get(const char *url, uint32_t &length, STREAM &file) {
     static uint16_t status = HTTP_get(url, length);
     PRINT("HTTP STATUS: ");
     DEBUGLN(status);
@@ -322,7 +327,7 @@ uint16_t UbirchSIM800::HTTP_post(const char *url, uint32_t &length) {
     return status;
 }
 
-uint16_t UbirchSIM800::HTTP_post(const char *url, uint32_t &length, File &file, uint32_t size) {
+uint16_t UbirchSIM800::HTTP_post(const char *url, uint32_t &length, STREAM &file, uint32_t size) {
     expect_AT_OK(F("+HTTPTERM"));
     delay(100);
 

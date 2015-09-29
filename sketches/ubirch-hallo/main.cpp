@@ -26,6 +26,8 @@
 #include "main.h"
 #include "sim800/UbirchSIM800.h"
 #include "vs1053/Adafruit_VS1053_FilePlayer.h"
+#include "i2c/i2c.h"
+#include "mpr121/mpr121.h"
 
 static UbirchSIM800 sim800 = UbirchSIM800();
 static Adafruit_VS1053_FilePlayer vs1053 =
@@ -58,40 +60,59 @@ void setup() {
     // == SETUP ===============================================
     if (!SD.begin(CARDCS)) {
         PRINTLN("SDCARD not found");
-        haltError(0);
+        haltError(1);
     }
     createTestFile();
     PRINTLN("SDCARD initialized");
+
+    if (!vs1053.begin()) {
+        PRINTLN("VS1053 not found");
+        haltError(1);
+    }
+    vs1053.useInterrupt(VS1053_FILEPLAYER_TIMER0_INT);
+    PRINTLN("VS1053 initialized ");
+
+    i2c_init(I2C_SPEED_400KHZ);
+    if (!mpr_reset()) {
+        PRINTLN("MPR121 not found");
+        haltError(5);
+    }
+    PRINTLN("MPR121 initialized");
 }
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
 
-static int c = 'u';
 
 void loop() {
     static File file;
-    static uint32_t length;
-    static uint16_t result;
+    uint32_t length;
+    uint16_t result;
     uint8_t retries = 2;
 
-    freeMem();
-    PRINTLN("MENU [u - upload, d - download, p - play file]");
+    uint16_t lasttouched = 0;
+    uint16_t mpr121_status = 0;
+
+    static int c = 'u';
+
+//    freeMem();
+//    PRINTLN("MENU [u - upload, d - download, p - play file, c - touch test]");
 //    while ((c = minimumSerial.read()) == -1);
 //    while (minimumSerial.read() != -1);
 
     switch ((char) c) {
         case -1:
             break;
+
         case 'u':
             PRINTLN("sending file");
             SD.cacheClear();
             do {
-                file = SD.open("test.ogg", O_RDONLY);
                 char date[10], time[10], tz[5];
                 sim800.time(date, time, tz);
                 PRINT("START: ");
                 DEBUGLN(time);
+                file = SD.open("test.ogg", O_RDONLY);
                 result = sim800.HTTP_post("http://api.ubirch.com:23456/upload", length, file, file.fileSize());
                 file.close();
                 sim800.time(date, time, tz);
@@ -122,14 +143,15 @@ void loop() {
             } while (c != 'd' && --retries);
 
             break;
+
         case 'd':
             PRINTLN("receiving file");
             SD.cacheClear();
-            file = SD.open("received.ogg", O_WRONLY | O_CREAT | O_TRUNC);
             char date[10], time[10], tz[5];
             sim800.time(date, time, tz);
             PRINT("START: ");
             DEBUGLN(time);
+            file = SD.open("received.ogg", O_WRONLY | O_CREAT | O_TRUNC);
             result = sim800.HTTP_get("http://api.ubirch.com:23456/download", length, file);
             file.close();
             sim800.time(date, time, tz);
@@ -153,19 +175,40 @@ void loop() {
                     c = 'x';
             }
             break;
+
         case 'p':
-            if (!vs1053.begin()) {
-                PRINTLN("VS1053 not found");
-                haltError(1);
-            }
-            vs1053.useInterrupt(VS1053_FILEPLAYER_TIMER0_INT);
-            PRINTLN("VS1053 initialized ");
 
             vs1053.setVolume(1, 1);
             PRINTLN("playing downloaded file");
             vs1053.playFullFile("received.ogg");
             c = 'x';
             break;
+
+        case 'c':
+
+            while (1) {
+                // Get the currently touched pads
+                mpr121_status = mpr_status();
+
+                for (uint8_t i = 0; i < 12; i++) {
+                    // it if *is* touched and *wasnt* touched before, alert!
+                    if ((mpr121_status & _BV(i)) && !(lasttouched & _BV(i))) {
+                        DEBUG(i);
+                        PRINTLN(" touched");
+                    }
+                    // if it *was* touched and now *isnt*, alert!
+                    if (!(mpr121_status & _BV(i)) && (lasttouched & _BV(i))) {
+                        DEBUG(i);
+                        PRINTLN(" released");
+                    }
+                }
+
+                // reset our state
+                lasttouched = mpr121_status;
+            }
+
+            break;
+
         default:
             haltOK();
             break;

@@ -17,6 +17,7 @@ Written to the sounds of
 
 You will need to refer to @chaosblog's wiring sheet for the pins used on the ubirch #1.
 
+### VS1053
 - default pins (SPI)
     * VCC -> any power pin (DIGITAL #3) 
     * GND -> ISP #5 GND
@@ -30,6 +31,9 @@ You will need to refer to @chaosblog's wiring sheet for the pins used on the ubi
     * XDCS -> ADC #1 (A0)
     * SDCS -> DIGITAL #2 (D1)
     * DREQ -> DIGITAL #1 (D0)
+
+### MPR121
+- default i2c pins on I2C1
 
 ## Building
 

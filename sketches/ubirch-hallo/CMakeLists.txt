@@ -1,6 +1,9 @@
 add_executable_avr(ubirch-hallo
         main.cpp
         checksum.c
+        i2c/i2c_core.c
+        i2c/i2c_registers.c
+        mpr121/mpr121.c
         sim800/UbirchSIM800.cpp
         vs1053/Adafruit_VS1053.cpp
         vs1053/Adafruit_VS1053_FilePlayer.cpp
