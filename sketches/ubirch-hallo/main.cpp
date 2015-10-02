@@ -26,9 +26,11 @@
 #include "main.h"
 #include "sim800/UbirchSIM800.h"
 #include "vs1053/Adafruit_VS1053_FilePlayer.h"
-#include "i2c/i2c.h"
-#include "mpr121/mpr121.h"
 
+extern "C" {
+#   include "i2c/i2c.h"
+#   include "mpr121/mpr121.h"
+}
 static UbirchSIM800 sim800 = UbirchSIM800();
 static Adafruit_VS1053_FilePlayer vs1053 =
         Adafruit_VS1053_FilePlayer(BREAKOUT_RESET, BREAKOUT_CS, BREAKOUT_DCS, DREQ, CARDCS);
@@ -96,7 +98,7 @@ void loop() {
     uint16_t lasttouched = 0;
     uint16_t mpr121_status = 0;
 
-    static int c = 'u';
+    static int c = 'c';
 
 //    freeMem();
 //    PRINTLN("MENU [u - upload, d - download, p - play file, c - touch test]");

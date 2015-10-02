@@ -19,14 +19,5 @@
  * limitations under the License.
  */
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
 #include "i2c_core.h"
 #include "i2c_registers.h"
-
-#ifdef __cplusplus
-}
-#endif
