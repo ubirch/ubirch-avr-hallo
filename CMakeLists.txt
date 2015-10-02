@@ -28,7 +28,6 @@ set(EXTRA_LIBS "-Wl,--trace")
 # project name and code types we use
 project(ubirch C CXX ASM)
 
-
 # add the sketches directory (contains sketch directories and a "libraries" dir where dependent
 # libs are extracted
 add_sketches(sketches)

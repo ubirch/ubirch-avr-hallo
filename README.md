@@ -26,7 +26,7 @@ You will need to refer to @chaosblog's wiring sheet for the pins used on the ubi
     * MOSI -> ISP #2 D.I2C (MOSI)
        
 - special pins
-    * RST -> unconnected (works apparently)
+    * RST -> connected to ISP1 (reset)
     * CS -> ADC #2 (A1)
     * XDCS -> ADC #1 (A0)
     * SDCS -> DIGITAL #2 (D1)
