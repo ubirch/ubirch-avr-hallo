@@ -33,6 +33,11 @@ static UbirchSIM800 sim800 = UbirchSIM800();
 static Adafruit_VS1053_FilePlayer vs1053 =
         Adafruit_VS1053_FilePlayer(BREAKOUT_RESET, BREAKOUT_CS, BREAKOUT_DCS, DREQ, CARDCS);
 
+
+bool sendFile(const char *fname, uint8_t retries);
+
+bool receiveFile(const char *fname) ;
+
 void setup() {
     // configure the initial values for UART and the connection to SIM800
     minimumSerial.begin((uint32_t) BAUD);
@@ -86,8 +91,6 @@ void setup() {
 
 void loop() {
     static File file;
-    uint32_t length;
-    uint16_t result;
     uint8_t retries = 2;
 
     uint16_t lasttouched = 0;
@@ -106,78 +109,16 @@ void loop() {
 
         case 'u':
             PRINTLN("sending file");
-            SD.cacheClear();
-            do {
-                char date[10], time[10], tz[5];
-                sim800.time(date, time, tz);
-                PRINT("START: ");
-                DEBUGLN(time);
-                file = SD.open("test.ogg", O_RDONLY);
-                result = sim800.HTTP_post("http://api.ubirch.com:23456/upload", length, file, file.fileSize());
-                file.close();
-                sim800.time(date, time, tz);
-                PRINT("END  : ");
-                DEBUGLN(time);
-                switch (result) {
-                    case 200:
-                        PRINT("200 OK (");
-                        DEBUG(length);
-                        PRINTLN(" bytes)");
-                        c = 'd';
-                        break;
-                    case 408:
-                        PRINTLN("CONNECTION TIMEOUT");
-                        c = 'x';
-                        break;
-                    case 601:
-                        PRINTLN("CONNECTION REFUSED");
-                        c = 'x';
-                        break;
-                    default:
-                        DEBUG(result);
-                        PRINT("??? (");
-                        DEBUG(length);
-                        PRINTLN(" bytes)");
-                        c = 'x';
-                }
-            } while (c != 'd' && --retries);
-
+            c = sendFile("test.ogg", retries) ? 'd' : 'x';
+            file.close();
             break;
 
         case 'd':
             PRINTLN("receiving file");
-            SD.cacheClear();
-            char date[10], time[10], tz[5];
-            sim800.time(date, time, tz);
-            PRINT("START: ");
-            DEBUGLN(time);
-            file = SD.open("received.ogg", O_WRONLY | O_CREAT | O_TRUNC);
-            result = sim800.HTTP_get("http://api.ubirch.com:23456/download", length, file);
-            file.close();
-            sim800.time(date, time, tz);
-            PRINT("END  : ");
-            DEBUGLN(time);
-            file.close();
-            switch (result) {
-                case 200:
-                    PRINT("200 OK (");
-                    DEBUG(length);
-                    PRINTLN(" bytes)");
-                    c = 'p';
-                    break;
-                case 601:
-                    PRINTLN("CONNECTION REFUSED");
-                default:
-                    DEBUG(result);
-                    PRINT("??? (");
-                    DEBUG(length);
-                    PRINTLN(" bytes)");
-                    c = 'x';
-            }
+            c = receiveFile("received.ogg") ? 'p' : 'x';
             break;
 
         case 'p':
-
             vs1053.setVolume(1, 1);
             PRINTLN("playing downloaded file");
             vs1053.playFullFile("received.ogg");
@@ -185,7 +126,6 @@ void loop() {
             break;
 
         case 'c':
-
             while (1) {
                 // Get the currently touched pads
                 mpr121_status = mpr_status();
@@ -217,6 +157,79 @@ void loop() {
 }
 
 #pragma clang diagnostic pop
+
+bool sendFile(const char *fname, uint8_t retries) {
+    uint16_t status;
+    uint32_t length;
+
+    SD.cacheClear();
+    do {
+        char date[10], time[10], tz[5];
+        sim800.time(date, time, tz);
+        PRINT("START: ");
+        DEBUGLN(time);
+        File file = SD.open(fname, O_RDONLY);
+        status = sim800.HTTP_post("http://api.ubirch.com:23456/upload", length, file, file.fileSize());
+        file.close();
+        sim800.time(date, time, tz);
+        PRINT("END  : ");
+        DEBUGLN(time);
+        switch (status) {
+            case 200:
+                PRINT("200 OK (");
+                DEBUG(length);
+                PRINTLN(" bytes)");
+                return true;
+            case 408:
+                PRINTLN("CONNECTION TIMEOUT");
+                break;
+            case 601:
+                PRINTLN("CONNECTION REFUSED");
+                break;
+            default:
+                DEBUG(status);
+                PRINT("??? (");
+                DEBUG(length);
+                PRINTLN(" bytes)");
+                break;
+        }
+    } while (--retries);
+    return false;
+}
+
+bool receiveFile(const char *fname) {
+    uint16_t result;
+    uint32_t length;
+
+    SD.cacheClear();
+    char date[10], time[10], tz[5];
+    sim800.time(date, time, tz);
+    PRINT("START: ");
+    DEBUGLN(time);
+    File file = SD.open(fname, O_WRONLY | O_CREAT | O_TRUNC);
+    result = sim800.HTTP_get("http://api.ubirch.com:23456/download", length, file);
+    file.close();
+    sim800.time(date, time, tz);
+    PRINT("END  : ");
+    DEBUGLN(time);
+    file.close();
+    switch (result) {
+        case 200:
+            PRINT("200 OK (");
+            DEBUG(length);
+            PRINTLN(" bytes)");
+            return true;
+        case 601:
+            PRINTLN("CONNECTION REFUSED");
+        default:
+            DEBUG(result);
+            PRINT("??? (");
+            DEBUG(length);
+            PRINTLN(" bytes)");
+            break;
+    }
+    return false;
+}
 
 void createTestFile() {
     if (SD.exists("TEST.TXT")) return;
