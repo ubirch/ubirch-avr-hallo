@@ -30,6 +30,7 @@
 extern "C" {
 #   include "i2c/i2c.h"
 #   include "mpr121/mpr121.h"
+#   include "ws2812/ws2812.h"
 }
 static UbirchSIM800 sim800 = UbirchSIM800();
 static Adafruit_VS1053_FilePlayer vs1053 =
@@ -39,6 +40,8 @@ static Adafruit_VS1053_FilePlayer vs1053 =
 bool sendFile(const char *fname, uint8_t retries);
 
 bool receiveFile(const char *fname) ;
+
+void breathe() ;
 
 void setup() {
     // configure the initial values for UART and the connection to SIM800
@@ -156,6 +159,7 @@ void loop() {
             break;
 
     }
+    breathe();
 }
 
 #pragma clang diagnostic pop
@@ -274,9 +278,62 @@ static void freeMem() {
     DEBUGLN(SP - (__brkval ? (uint16_t) __brkval : (uint16_t) &__heap_start));
 }
 
+void breathe() {
+    uint8_t buffer[8];
+    for (uint8_t i = 15; i < 255; i++) {
+        WS2812_compileRGB(buffer, i, i, i);
+        WS2812_transmit_precompiled_sequence(buffer, sizeof(buffer), 8);
+        if (i > 150) {
+            _delay_ms(4);
+        }
+        if ((i > 125) && (i < 151)) {
+            _delay_ms(5);
+        }
+        if ((i > 100) && (i < 126)) {
+            _delay_ms(7);
+        }
+        if ((i > 75) && (i < 101)) {
+            _delay_ms(10);
+        }
+        if ((i > 50) && (i < 76)) {
+            _delay_ms(14);
+        }
+        if ((i > 25) && (i < 51)) {
+            _delay_ms(18);
+        }
+        if ((i > 1) && (i < 26)) {
+            _delay_ms(19);
+        }
+    }
+    for (uint8_t i = 255; i >= 15; i--) {
+        WS2812_compileRGB(buffer, i, i, i);
+        WS2812_transmit_precompiled_sequence(buffer, sizeof(buffer), 8);
+        if (i > 150) {
+            _delay_ms(4);
+        }
+        if ((i > 125) && (i < 151)) {
+            _delay_ms(5);
+        }
+        if ((i > 100) && (i < 126)) {
+            _delay_ms(7);
+        }
+        if ((i > 75) && (i < 101)) {
+            _delay_ms(10);
+        }
+        if ((i > 50) && (i < 76)) {
+            _delay_ms(14);
+        }
+        if ((i > 25) && (i < 51)) {
+            _delay_ms(18);
+        }
+        if ((i > 1) && (i < 26)) {
+            _delay_ms(19);
+        }
+    }
+    _delay_ms(970);
+}
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
-
 // send blink signals for error codes and never return
 static void haltError(uint8_t code) {
     PRINT("ERROR: ");
@@ -293,7 +350,6 @@ static void haltError(uint8_t code) {
         delay(5000);
     }
 }
-
 
 static void haltOK() {
     pinMode(UBIRCH_NO1_PIN_LED, OUTPUT);

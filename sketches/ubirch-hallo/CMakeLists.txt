@@ -7,6 +7,7 @@ add_executable_avr(ubirch-hallo
         sim800/UbirchSIM800.cpp
         vs1053/Adafruit_VS1053.cpp
         vs1053/Adafruit_VS1053_FilePlayer.cpp
+        ws2812/ws2812.c
         )
 target_link_libraries(ubirch-hallo SoftwareSerial)
 target_sketch_library(ubirch-hallo SdFat "locally checked in")
