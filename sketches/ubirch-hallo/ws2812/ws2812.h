@@ -7,15 +7,15 @@
 #include <avr/pgmspace.h>
 
 #ifndef WS2812_DO_DDR
-#	define WS2812_DO_DDR		DDRB
+#	define WS2812_DO_DDR		DDRD
 #endif
 
 #ifndef WS2812_DO_PORT
-#	define WS2812_DO_PORT		PORTB
+#	define WS2812_DO_PORT		PORTD
 #endif
 
 #ifndef WS2812_DO_BIT
-#	define WS2812_DO_BIT		PB1
+#	define WS2812_DO_BIT		PD0
 #endif
 
 #define WS2812_HAVECOMPILER

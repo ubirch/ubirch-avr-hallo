@@ -32,6 +32,7 @@ extern "C" {
 #   include "mpr121/mpr121.h"
 #   include "ws2812/ws2812.h"
 }
+
 static UbirchSIM800 sim800 = UbirchSIM800();
 static Adafruit_VS1053_FilePlayer vs1053 =
         Adafruit_VS1053_FilePlayer(BREAKOUT_RESET, BREAKOUT_CS, BREAKOUT_DCS, DREQ, CARDCS);
@@ -39,18 +40,44 @@ static Adafruit_VS1053_FilePlayer vs1053 =
 
 bool sendFile(const char *fname, uint8_t retries);
 
-bool receiveFile(const char *fname) ;
+bool receiveFile(const char *fname);
 
-void breathe() ;
+void breathe();
+
+#define LED_WHITE   0b111
+#define LED_RED     0b100
+#define LED_GREEN   0b010
+#define LED_BLUE    0b001
+
+volatile static uint8_t led_color = LED_WHITE;
 
 void setup() {
     // configure the initial values for UART and the connection to SIM800
-    minimumSerial.begin((uint32_t) BAUD);
+    minimumSerial.begin((uint32_t) 57600);
 
     // initially disable the watchdog, it confused people
     enable_watchdog();
 
     blink(3, 1000);
+
+    cli();
+    TCCR1A = 0;
+    TCCR1B = 0;
+    TCNT1 = 0;
+
+    OCR1A = (F_CPU / 256 / 30);  // compare match register 16MHz/256/xxHz
+    TCCR1B |= (1 << WGM12);   // CTC mode
+    TCCR1B |= (1 << CS12);    // 256 prescaler
+    TIMSK1 |= (1 << OCIE1A);  // enable timer compare interrupt
+
+    // disable UART RX
+    UCSR0B &= ~_BV(RXEN0);
+    // set output register for LEDs
+    WS2812_DO_DDR |= _BV(WS2812_DO_BIT);
+
+    sei();
+
+    led_color = LED_RED;
 
     PRINTLN("SIM800 wakeup");
     if (!sim800.wakeup()) haltError(1);
@@ -88,6 +115,8 @@ void setup() {
         haltError(5);
     }
     PRINTLN("MPR121 initialized");
+
+    led_color = LED_WHITE;
 }
 
 #pragma clang diagnostic push
@@ -101,7 +130,7 @@ void loop() {
     uint16_t lasttouched = 0;
     uint16_t mpr121_status = 0;
 
-    static int c = 'c';
+    static int c = 'u';
 
 //    freeMem();
 //    PRINTLN("MENU [u - upload, d - download, p - play file, c - touch test]");
@@ -127,7 +156,7 @@ void loop() {
             vs1053.setVolume(1, 1);
             PRINTLN("playing downloaded file");
             vs1053.playFullFile("received.ogg");
-            c = 'x';
+            c = 'c';
             break;
 
         case 'c':
@@ -135,7 +164,7 @@ void loop() {
                 // Get the currently touched pads
                 mpr121_status = mpr_status();
 
-                for (uint8_t i = 0; i < 12; i++) {
+                for (uint8_t i = 0; i < 11; i++) {
                     // it if *is* touched and *wasnt* touched before, alert!
                     if ((mpr121_status & _BV(i)) && !(lasttouched & _BV(i))) {
                         DEBUG(i);
@@ -159,7 +188,6 @@ void loop() {
             break;
 
     }
-    breathe();
 }
 
 #pragma clang diagnostic pop
@@ -213,7 +241,9 @@ bool receiveFile(const char *fname) {
     PRINT("START: ");
     DEBUGLN(time);
     File file = SD.open(fname, O_WRONLY | O_CREAT | O_TRUNC);
+    TIMSK1 &= ~_BV(OCIE1A);  // disable timer compare interrupt
     result = sim800.HTTP_get("http://api.ubirch.com:23456/download", length, file);
+    TIMSK1 |= _BV(OCIE1A);  // enable timer compare interrupt
     file.close();
     sim800.time(date, time, tz);
     PRINT("END  : ");
@@ -278,62 +308,24 @@ static void freeMem() {
     DEBUGLN(SP - (__brkval ? (uint16_t) __brkval : (uint16_t) &__heap_start));
 }
 
-void breathe() {
-    uint8_t buffer[8];
-    for (uint8_t i = 15; i < 255; i++) {
-        WS2812_compileRGB(buffer, i, i, i);
-        WS2812_transmit_precompiled_sequence(buffer, sizeof(buffer), 8);
-        if (i > 150) {
-            _delay_ms(4);
-        }
-        if ((i > 125) && (i < 151)) {
-            _delay_ms(5);
-        }
-        if ((i > 100) && (i < 126)) {
-            _delay_ms(7);
-        }
-        if ((i > 75) && (i < 101)) {
-            _delay_ms(10);
-        }
-        if ((i > 50) && (i < 76)) {
-            _delay_ms(14);
-        }
-        if ((i > 25) && (i < 51)) {
-            _delay_ms(18);
-        }
-        if ((i > 1) && (i < 26)) {
-            _delay_ms(19);
-        }
-    }
-    for (uint8_t i = 255; i >= 15; i--) {
-        WS2812_compileRGB(buffer, i, i, i);
-        WS2812_transmit_precompiled_sequence(buffer, sizeof(buffer), 8);
-        if (i > 150) {
-            _delay_ms(4);
-        }
-        if ((i > 125) && (i < 151)) {
-            _delay_ms(5);
-        }
-        if ((i > 100) && (i < 126)) {
-            _delay_ms(7);
-        }
-        if ((i > 75) && (i < 101)) {
-            _delay_ms(10);
-        }
-        if ((i > 50) && (i < 76)) {
-            _delay_ms(14);
-        }
-        if ((i > 25) && (i < 51)) {
-            _delay_ms(18);
-        }
-        if ((i > 1) && (i < 26)) {
-            _delay_ms(19);
-        }
-    }
-    _delay_ms(970);
+ISR(TIMER1_COMPA_vect) {
+    static uint8_t buffer[8];
+    static float in = 4.712;
+
+    in = in + 0.1;
+    if (in > 10.995) in = 4.712;
+
+    uint8_t out = (uint8_t) (sin(in) * 127.5 + 127.5);
+    WS2812_compileRGB(buffer,
+                      led_color & LED_RED ? out : 0,
+                      led_color & LED_GREEN ? out : 0,
+                      led_color & LED_BLUE ? out : 0);
+    WS2812_transmit_precompiled_sequence(buffer, sizeof(buffer), 8 * 7);
 }
+
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
+
 // send blink signals for error codes and never return
 static void haltError(uint8_t code) {
     PRINT("ERROR: ");
