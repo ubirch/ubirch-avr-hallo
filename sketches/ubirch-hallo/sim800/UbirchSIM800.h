@@ -78,6 +78,8 @@ public:
     // get time off the SIM800 RTC
     bool time(char *date, char *time, char *tz);
 
+    bool IMEI(char *imei);
+
     // query status of the network connection
     bool status();
 
@@ -168,6 +170,7 @@ private:
     void println(const char *s);
 
     void println(uint32_t s);
+
 };
 
 #endif //UBIRCH_SIM800_H

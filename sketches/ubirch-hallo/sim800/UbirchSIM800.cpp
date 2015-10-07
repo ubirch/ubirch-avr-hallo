@@ -27,7 +27,8 @@
 
 extern MinimumSerial minimumSerial;
 
-//#define NDEBUG
+#define NDEBUG
+#define DEBUG_PROGRESS
 
 // show minimumSerial output only in non-release mode
 #ifndef NDEBUG
@@ -102,6 +103,11 @@ bool UbirchSIM800::time(char *date, char *time, char *tz) {
     return expect_scan(F("+CCLK: \"%8s,%8s%3s\""), date, time, tz) == 3;
 }
 
+bool UbirchSIM800::IMEI(char *imei) {
+    println(F("AT+GSN"));
+    expect_scan(F("%s"), imei);
+    return expect_OK();
+}
 
 bool UbirchSIM800::wakeup() {
     PRINTLN("!!! SIM800 wakeup");
@@ -274,11 +280,10 @@ uint16_t UbirchSIM800::HTTP_get(const char *url, uint32_t &length, STREAM &file)
     uint32_t pos = 0, r = 0;
     do {
         r = HTTP_get_read(buffer, pos, SIM800_BUFSIZE);
-#ifndef NDEBUG
+#ifdef DEBUG_PROGRESS
         if ((pos % 10240) == 0) {
-            DEBUG(pos);
-            PRINTLN("");
-        } else if (pos % (1024) == 0) { PRINT("."); }
+            minimumSerial.println(pos);
+        } else if (pos % (1024) == 0) { minimumSerial.print(F(".")); }
 #endif
         pos += r;
         file.write(buffer, r);
@@ -359,13 +364,12 @@ uint16_t UbirchSIM800::HTTP_post(const char *url, uint32_t &length, STREAM &file
             PRINTLN("EOF");
             break;
         }
-#ifndef NDEBUG
+#ifdef DEBUG_PROGRESS
         if ((pos % 10240) == 0) {
-            DEBUG(pos);
-            PRINT(" ");
-            DEBUG(r);
-            PRINTLN("");
-        } else if (pos % (1024) == 0) { PRINT("."); }
+            minimumSerial.print(pos);
+            minimumSerial.print(F(" "));
+            minimumSerial.println(r);
+        } else if (pos % (1024) == 0) { minimumSerial.print("."); }
 #endif
         pos += r;
     } while (r == SIM800_BUFSIZE);
