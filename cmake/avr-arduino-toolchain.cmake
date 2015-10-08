@@ -62,11 +62,12 @@ if (NOT DEFINED MONITOR_ARGS)
     set(MONITOR_ARGS ${SERIAL_DEV} ${BAUD})
 endif ()
 
-set(COMPILER_FLAGS "-Os -Wall -Wno-unknown-pragmas -Wextra -MMD -mmcu=${MCU}" CACHE STRING "")
-set(CMAKE_C_FLAGS "${COMPILER_FLAGS} -std=gnu99 -mcall-prologues -ffunction-sections -fdata-sections" CACHE STRING "")
+set(COMPILER_FLAGS "-save-temps -Os -Wall -Wno-unknown-pragmas -Wextra -MMD -mmcu=${MCU}" CACHE STRING "")
+set(CMAKE_C_FLAGS "${COMPILER_FLAGS} -std=gnu99 -ffunction-sections -fdata-sections" CACHE STRING "")
 set(CMAKE_CXX_FLAGS "${COMPILER_FLAGS} -std=c++0x -felide-constructors -fpermissive -fno-exceptions -ffunction-sections -fdata-sections -fno-threadsafe-statics" CACHE STRING "")
 set(CMAKE_ASM_FLAGS "${COMPILER_FLAGS} -x assembler-with-cpp " CACHE STRING "")
-set(CMAKE_EXE_LINKER_FLAGS "-Wl,--relax -Wl,--gc-sections -Wl,-u,vfscanf -lscanf_min -Wl,-u,vfprintf -lprintf_min -lm ${EXTRA_LIBS}" CACHE STRING "")
+set(CMAKE_EXE_LINKER_FLAGS "-Wl,--gc-sections ${EXTRA_LIBS}" CACHE STRING "")
+#set(CMAKE_EXE_LINKER_FLAGS "-Wl,--relax -Wl,--gc-sections ${EXTRA_LIBS}" CACHE STRING "")
 
 # some definitions that are common
 add_definitions(-DMCU=\"${MCU}\")

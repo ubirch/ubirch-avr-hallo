@@ -12,7 +12,7 @@ set(PROGRAMMER arduino)
 # only needed if we do floating point math and want to print floats with printf
 #set(EXTRA_LIBS "-lm -lprintf_flt")
 # show a list of libs linked
-set(EXTRA_LIBS "-Wl,--trace")
+set(EXTRA_LIBS "-Wl,--trace -Wl,-Map,linker.map -Wl,-u,vfscanf -Wl,-u,vsprintf -Wl,-u,sin -lprintf_min -lscanf_min -lm")
 
 # if you want to compile Arduino sketches, set this to the Arduino SDK dir (1.6.5)
 set(ARDUINO_SDK_PATH "/Applications/Arduino.app/Contents/Java" CACHE STRING "Arduino SDK Path")

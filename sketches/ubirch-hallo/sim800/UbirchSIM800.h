@@ -26,8 +26,8 @@
 #include <stdint.h>
 #include <SoftwareSerial.h>
 #if ARDUINO_FILE_USES_STREAM == 0
-#include <ArduinoFiles.h>
-#define STREAM File
+#include <SdFat.h>
+#define STREAM FatFile
 #else
 #include <Stream.h>
 #define STREAM Stream

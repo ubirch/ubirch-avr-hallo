@@ -112,6 +112,7 @@ bool UbirchSIM800::IMEI(char *imei) {
 bool UbirchSIM800::wakeup() {
     PRINTLN("!!! SIM800 wakeup");
 
+    expect_AT_OK(F(""));
     // check if the chip is already awake, otherwise start wakeup
     if (!expect_AT_OK(F(""), 5000)) {
         PRINTLN("!!! using PWRKEY wakeup procedure");
@@ -157,8 +158,7 @@ bool UbirchSIM800::shutdown() {
 bool UbirchSIM800::registerNetwork(uint16_t timeout) {
     PRINTLN("!!! waiting for network registration");
     expect_AT_OK(F(""));
-    timeout = timeout / 1000;
-    while (--timeout) {
+    while (timeout -= 1000) {
         uint8_t n = 0;
         println(F("AT+CREG?"));
         expect_scan(F("+CREG: 0,%d"), &n);
@@ -268,7 +268,7 @@ uint16_t UbirchSIM800::HTTP_get(const char *url, uint32_t &length) {
 }
 
 uint16_t UbirchSIM800::HTTP_get(const char *url, uint32_t &length, STREAM &file) {
-    static uint16_t status = HTTP_get(url, length);
+    uint16_t status = HTTP_get(url, length);
     PRINT("HTTP STATUS: ");
     DEBUGLN(status);
     PRINT("FILE LENGTH: ");
@@ -283,7 +283,7 @@ uint16_t UbirchSIM800::HTTP_get(const char *url, uint32_t &length, STREAM &file)
 #ifdef DEBUG_PROGRESS
         if ((pos % 10240) == 0) {
             minimumSerial.println(pos);
-        } else if (pos % (1024) == 0) { minimumSerial.print(F(".")); }
+        } else if (pos % (1024) == 0) { minimumSerial.print(F("<")); }
 #endif
         pos += r;
         file.write(buffer, r);
@@ -369,7 +369,7 @@ uint16_t UbirchSIM800::HTTP_post(const char *url, uint32_t &length, STREAM &file
             minimumSerial.print(pos);
             minimumSerial.print(F(" "));
             minimumSerial.println(r);
-        } else if (pos % (1024) == 0) { minimumSerial.print("."); }
+        } else if (pos % (1024) == 0) { minimumSerial.print(">"); }
 #endif
         pos += r;
     } while (r == SIM800_BUFSIZE);
@@ -439,7 +439,7 @@ bool UbirchSIM800::connect(const char *address, uint16_t port, uint16_t timeout)
 bool UbirchSIM800::status() {
     println(F("AT+CIPSTATUS=0"));
 
-    char status[80];
+    char status[SIM800_BUFSIZE];
     expect_scan(F("+CIPSTATUS: %s"), status);
     DEBUGLN(status);
     if (!expect_OK()) return false;
@@ -574,8 +574,8 @@ bool UbirchSIM800::expect_AT_OK(const __FlashStringHelper *cmd, uint16_t timeout
 }
 
 bool UbirchSIM800::expect(const __FlashStringHelper *expected, uint16_t timeout) {
-    char buf[100];
-    unsigned int len = readline(buf, 100, timeout);
+    char buf[SIM800_BUFSIZE];
+    unsigned int len = readline(buf, SIM800_BUFSIZE, timeout);
     PRINT("--- (");
     DEBUG(len);
     PRINT(") ");
@@ -588,8 +588,8 @@ bool UbirchSIM800::expect_OK(uint16_t timeout) {
 }
 
 bool UbirchSIM800::expect_scan(const __FlashStringHelper *pattern, void *ref, uint16_t timeout) {
-    char buf[100];
-    unsigned int len = readline(buf, 100, timeout);
+    char buf[SIM800_BUFSIZE];
+    unsigned int len = readline(buf, SIM800_BUFSIZE, timeout);
     PRINT("--- (");
     DEBUG(len);
     PRINT(") ");
@@ -598,8 +598,8 @@ bool UbirchSIM800::expect_scan(const __FlashStringHelper *pattern, void *ref, ui
 }
 
 bool UbirchSIM800::expect_scan(const __FlashStringHelper *pattern, void *ref, void *ref1, uint16_t timeout) {
-    char buf[100];
-    unsigned int len = readline(buf, 100, timeout);
+    char buf[SIM800_BUFSIZE];
+    unsigned int len = readline(buf, SIM800_BUFSIZE, timeout);
     PRINT("--- (");
     DEBUG(len);
     PRINT(") ");
@@ -609,8 +609,8 @@ bool UbirchSIM800::expect_scan(const __FlashStringHelper *pattern, void *ref, vo
 
 bool UbirchSIM800::expect_scan(const __FlashStringHelper *pattern, void *ref, void *ref1, void *ref2,
                                uint16_t timeout) {
-    char buf[100];
-    unsigned int len = readline(buf, 100, timeout);
+    char buf[SIM800_BUFSIZE];
+    unsigned int len = readline(buf, SIM800_BUFSIZE, timeout);
     PRINT("--- (");
     DEBUG(len);
     PRINT(") ");

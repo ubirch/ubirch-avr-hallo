@@ -23,6 +23,7 @@
 
 #include <SdFat.h>
 #include <MinimumSerial.h>
+#include <avr/wdt.h>
 #include "main.h"
 #include "sim800/UbirchSIM800.h"
 #include "vs1053/Adafruit_VS1053_FilePlayer.h"
@@ -33,90 +34,174 @@ extern "C" {
 #   include "ws2812/ws2812.h"
 }
 
-static UbirchSIM800 sim800 = UbirchSIM800();
-static Adafruit_VS1053_FilePlayer vs1053 =
+UbirchSIM800 sim800 = UbirchSIM800();
+Adafruit_VS1053_FilePlayer vs1053 =
         Adafruit_VS1053_FilePlayer(BREAKOUT_RESET, BREAKOUT_CS, BREAKOUT_DCS, DREQ, CARDCS);
 
+#define STATE_COLOR(r, g, b)  (state.red=(r),state.green=(g),state.blue=(b), sin_start=4.712)
+
+struct state_t {
+    uint8_t red;
+    uint8_t green;
+    uint8_t blue;
+    uint8_t pulse : 1;
+    uint8_t message : 1;
+};
+
+volatile state_t state;
+long timer = 10000;
+volatile float sin_start = 4.712;
 
 bool sendFile(const char *fname, uint8_t retries);
 
 bool receiveFile(const char *fname);
 
-void breathe();
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-noreturn"
 
-#define LED_WHITE   0b111
-#define LED_RED     0b100
-#define LED_GREEN   0b010
-#define LED_BLUE    0b001
+inline void halt(uint8_t c) {
+    while (1) {
+        DEBUG(c);
+        _delay_ms(1000);
+    };
+}
 
-volatile static uint8_t led_color = LED_WHITE;
+#pragma clang diagnostic pop
+
+void blink(uint8_t n, unsigned long speed) {
+    digitalWrite(UBIRCH_NO1_PIN_LED, LOW);
+    for (int i = n * 2; i > 0; i--) {
+        PRINT(".");
+        digitalWrite(UBIRCH_NO1_PIN_LED, i % 2 == 0 ? HIGH : LOW);
+        delay(speed);
+    }
+    digitalWrite(UBIRCH_NO1_PIN_LED, LOW);
+    PRINTLN("");
+}
+
+inline void disable_pulse() {
+    TIMSK1 &= ~(1 << OCIE1A);  // enable timer compare interrupt
+}
+
+inline void enable_pulse() {
+    TIMSK1 |= (1 << OCIE1A);  // enable timer compare interrupt
+}
 
 void setup() {
-    // configure the initial values for UART and the connection to SIM800
-    minimumSerial.begin((uint32_t) 57600);
+    // disable all the watchdogs
+    wdt_disable();
+    disable_watchdog();
 
-    // initially disable the watchdog, it confused people
-    enable_watchdog();
-
-    blink(3, 1000);
-
+    // setup interrupt that controls our pulsing light
     cli();
+
     TCCR1A = 0;
     TCCR1B = 0;
     TCNT1 = 0;
 
-    OCR1A = (F_CPU / 256 / 30);  // compare match register 16MHz/256/xxHz
+    OCR1A = (F_CPU / 256 / 10);  // compare match register 16MHz/256/xxHz
     TCCR1B |= (1 << WGM12);   // CTC mode
     TCCR1B |= (1 << CS12);    // 256 prescaler
     TIMSK1 |= (1 << OCIE1A);  // enable timer compare interrupt
 
-    // disable UART RX
-    UCSR0B &= ~_BV(RXEN0);
     // set output register for LEDs
     WS2812_DO_DDR |= _BV(WS2812_DO_BIT);
 
     sei();
 
-    led_color = LED_RED;
+    // configure the initial values for UART and the connection to SIM800
+    minimumSerial.begin((uint32_t) 115200);
+
+    blink(3, 1000);
+
+    STATE_COLOR(255, 0, 0);
+    state.pulse = 1;
 
     PRINTLN("SIM800 wakeup");
-    if (!sim800.wakeup()) haltError(1);
+    if (!sim800.wakeup()) halt(11);
     sim800.setAPN(F(SIM800_APN), F(SIM800_USER), F(SIM800_PASS));
 
+    STATE_COLOR(255, 128, 0);
     PRINTLN("SIM800 waiting for network registration");
     while (!sim800.registerNetwork()) {
         sim800.shutdown();
         sim800.wakeup();
     }
+
+    STATE_COLOR(255, 255, 0);
     PRINTLN("SIM800 enabling GPRS");
-    if (!sim800.enableGPRS()) haltError(3);
+    if (!sim800.enableGPRS()) halt(22);
     PRINTLN("SIM800 initialized");
 
-    disable_watchdog();
 
     // == SETUP ===============================================
     if (!SD.begin(CARDCS)) {
         PRINTLN("SDCARD not found");
-        haltError(1);
+        halt(33);
     }
-    createTestFile();
     PRINTLN("SDCARD initialized");
 
     if (!vs1053.begin()) {
         PRINTLN("VS1053 not found");
-        haltError(1);
+        halt(44);
     }
-    vs1053.useInterrupt(VS1053_FILEPLAYER_TIMER0_INT);
     PRINTLN("VS1053 initialized ");
 
     i2c_init(I2C_SPEED_400KHZ);
     if (!mpr_reset()) {
         PRINTLN("MPR121 not found");
-        haltError(5);
+        halt(55);
     }
     PRINTLN("MPR121 initialized");
 
-    led_color = LED_WHITE;
+    STATE_COLOR(0,0,0);
+}
+
+ISR(TIMER1_COMPA_vect) {
+    if (state.pulse) {
+        sin_start = sin_start + 0.1;
+        if (sin_start > 10.995) sin_start = 4.712;
+
+
+        float factor = sin(sin_start);
+        uint8_t rh = state.red / 2;
+        uint8_t gh = state.green / 2;
+        uint8_t bh = state.blue / 2;
+
+        UCSR0B &= ~_BV(RXEN0);
+        uint8_t buffer[8];
+        WS2812_compileRGB(buffer,
+                          (const uint8_t) (factor * rh + rh),
+                          (const uint8_t) (factor * gh + gh),
+                          (const uint8_t) (factor * bh + bh));
+        WS2812_DO_DDR |= _BV(WS2812_DO_BIT);
+        WS2812_transmit_precompiled_sequence(buffer, sizeof(buffer), 8 * 7);
+        _delay_us(58);
+        UCSR0B |= _BV(RXEN0);
+    }
+}
+
+uint8_t play(const char *fname) {
+    vs1053.setVolume(1, 1);
+    vs1053.useInterrupt(VS1053_FILEPLAYER_TIMER0_INT);
+    vs1053.startPlayingFile(fname);
+
+    uint8_t unfinished = 0;
+    while (vs1053.playingMusic) {
+        if (!(mpr_status() & _BV(0))) {
+            unfinished = 1;
+            vs1053.stopPlaying();
+        }
+        _delay_ms(100);
+    }
+    // TODO hack to disable the timer interrupt
+    TIMSK0 &= ~_BV(OCIE0A);
+
+    STATE_COLOR(0,0,128);
+    while(mpr_status() & _BV(0)) _delay_ms(20);
+    STATE_COLOR(0,0,0);
+
+    return unfinished;
 }
 
 #pragma clang diagnostic push
@@ -124,69 +209,38 @@ void setup() {
 
 
 void loop() {
-    static File file;
-    uint8_t retries = 2;
+    // check if the sensor 0 was touched
+    if ((mpr_status() & _BV(0))) {
+        state.pulse = 1;
 
-    uint16_t lasttouched = 0;
-    uint16_t mpr121_status = 0;
-
-    static int c = 'u';
-
-//    freeMem();
-//    PRINTLN("MENU [u - upload, d - download, p - play file, c - touch test]");
-//    while ((c = minimumSerial.read()) == -1);
-//    while (minimumSerial.read() != -1);
-
-    switch ((char) c) {
-        case -1:
-            break;
-
-        case 'u':
-            PRINTLN("sending file");
-            c = sendFile("test.ogg", retries) ? 'd' : 'x';
-            file.close();
-            break;
-
-        case 'd':
-            PRINTLN("receiving file");
-            c = receiveFile("received.ogg") ? 'p' : 'x';
-            break;
-
-        case 'p':
-            vs1053.setVolume(1, 1);
-            PRINTLN("playing downloaded file");
-            vs1053.playFullFile("received.ogg");
-            c = 'c';
-            break;
-
-        case 'c':
-            while (1) {
-                // Get the currently touched pads
-                mpr121_status = mpr_status();
-
-                for (uint8_t i = 0; i < 11; i++) {
-                    // it if *is* touched and *wasnt* touched before, alert!
-                    if ((mpr121_status & _BV(i)) && !(lasttouched & _BV(i))) {
-                        DEBUG(i);
-                        PRINTLN(" touched");
-                    }
-                    // if it *was* touched and now *isnt*, alert!
-                    if (!(mpr121_status & _BV(i)) && (lasttouched & _BV(i))) {
-                        DEBUG(i);
-                        PRINTLN(" released");
-                    }
+        if (state.message) {
+            STATE_COLOR(0, 0, 0);
+            PRINTLN("playing downloaded message");
+            state.message = play("m.ogg");
+            // set color to black if we played the whole message
+            if (state.message) STATE_COLOR(0, 255, 0);
+        } else {
+            PRINTLN("recording message");
+//            record("r.ogg");
+            PRINTLN("sending recorded message");
+//            sendFile("r.ogg", 3);
+            STATE_COLOR(0, 0, 0);
+        }
+    } else {
+        if (--timer < 0) {
+            timer = 30 * 60000;
+            // if no message is avaiable, check regularly for a new message
+            if (!state.message) {
+                disable_pulse();
+                if (receiveFile("m.ogg")) {
+                    STATE_COLOR(0,255,0);
+                    state.pulse = 1;
+                    state.message = 1;
                 }
-
-                // reset our state
-                lasttouched = mpr121_status;
+                enable_pulse();
             }
-
-            break;
-
-        default:
-            haltOK();
-            break;
-
+        }
+        if (timer % 1000 == 0) minimumSerial.print(state.message ? "!" : ".");
     }
 }
 
@@ -196,15 +250,17 @@ bool sendFile(const char *fname, uint8_t retries) {
     uint16_t status;
     uint32_t length;
 
-    SD.cacheClear();
     do {
         char date[10], time[10], tz[5];
         sim800.time(date, time, tz);
         PRINT("START: ");
         DEBUGLN(time);
+
+        SD.cacheClear();
         File file = SD.open(fname, O_RDONLY);
         status = sim800.HTTP_post("http://api.ubirch.com:23456/upload", length, file, file.fileSize());
         file.close();
+
         sim800.time(date, time, tz);
         PRINT("END  : ");
         DEBUGLN(time);
@@ -232,126 +288,25 @@ bool sendFile(const char *fname, uint8_t retries) {
 }
 
 bool receiveFile(const char *fname) {
-    uint16_t result;
+    uint16_t status;
     uint32_t length;
 
     SD.cacheClear();
-    char date[10], time[10], tz[5];
-    sim800.time(date, time, tz);
-    PRINT("START: ");
-    DEBUGLN(time);
+    SD.remove(fname);
     File file = SD.open(fname, O_WRONLY | O_CREAT | O_TRUNC);
-    TIMSK1 &= ~_BV(OCIE1A);  // disable timer compare interrupt
-    result = sim800.HTTP_get("http://api.ubirch.com:23456/download", length, file);
-    TIMSK1 |= _BV(OCIE1A);  // enable timer compare interrupt
+    if (!file) return false;
+
+    status = sim800.HTTP_get("http://api.ubirch.com:23456/download", length, file);
     file.close();
-    sim800.time(date, time, tz);
-    PRINT("END  : ");
-    DEBUGLN(time);
-    file.close();
-    switch (result) {
-        case 200:
-            PRINT("200 OK (");
-            DEBUG(length);
-            PRINTLN(" bytes)");
-            return true;
-        case 601:
-            PRINTLN("CONNECTION REFUSED");
-        default:
-            DEBUG(result);
-            PRINT("??? (");
-            DEBUG(length);
-            PRINTLN(" bytes)");
-            break;
-    }
-    return false;
+
+    return status == 200;
 }
 
-void createTestFile() {
-    if (SD.exists("TEST.TXT")) return;
 
-    File testFile = SD.open("TEST.TXT", O_CREAT | O_WRONLY | O_TRUNC);
-
-    PRINTLN("CREATING TEST FILE");
-    char number[80];
-    for (int line = 0; line < 3187; line++) {
-        sprintf(number, "%06u ", line);
-        testFile.write(number, 7);
-        DEBUG(number);
-        for (uint16_t c = 0; c < 73; c++) {
-            uint8_t b = (uint8_t) ('0' + (c % 10));
-            testFile.print((char) b);
-            DEBUG((char) b);
-        }
-        PRINTLN("");
-        testFile.println();
-    }
-    testFile.close();
-    PRINTLN("CREATED TEST FILE");
-    DEBUG(testFile.size());
-    PRINTLN(" bytes");
-}
-
-static void blink(uint8_t n, unsigned long speed) {
-    digitalWrite(UBIRCH_NO1_PIN_LED, LOW);
-    for (int i = n * 2; i > 0; i--) {
-        PRINT(".");
-        digitalWrite(UBIRCH_NO1_PIN_LED, i % 2 == 0 ? HIGH : LOW);
-        delay(speed);
-    }
-    digitalWrite(UBIRCH_NO1_PIN_LED, LOW);
-    PRINTLN("");
-}
-
-static void freeMem() {
-    PRINT("Free memory = ");
-    DEBUGLN(SP - (__brkval ? (uint16_t) __brkval : (uint16_t) &__heap_start));
-}
-
-ISR(TIMER1_COMPA_vect) {
-    static uint8_t buffer[8];
-    static float in = 4.712;
-
-    in = in + 0.1;
-    if (in > 10.995) in = 4.712;
-
-    uint8_t out = (uint8_t) (sin(in) * 127.5 + 127.5);
-    WS2812_compileRGB(buffer,
-                      led_color & LED_RED ? out : 0,
-                      led_color & LED_GREEN ? out : 0,
-                      led_color & LED_BLUE ? out : 0);
-    WS2812_transmit_precompiled_sequence(buffer, sizeof(buffer), 8 * 7);
-}
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wmissing-noreturn"
-
-// send blink signals for error codes and never return
-static void haltError(uint8_t code) {
-    PRINT("ERROR: ");
-    DEBUGLN(code);
-    pinMode(UBIRCH_NO1_PIN_LED, OUTPUT);
-    for (; ;) {
-        for (uint8_t i = 0; i < code; i++) {
-            enable_led();
-            delay(500);
-            disable_led();
-            delay(500);
-        }
-        PRINT("E");
-        delay(5000);
-    }
-}
-
-static void haltOK() {
-    pinMode(UBIRCH_NO1_PIN_LED, OUTPUT);
-    for (; ;) {
-        enable_led();
-        delay(1000);
-        disable_led();
-        delay(1000);
-        PRINT("+");
-    }
-}
-
-#pragma clang diagnostic pop
+//extern unsigned int __heap_start;
+//extern void *__brkval;
+//
+//static void freeMem() {
+//    PRINT("Free memory = ");
+//    DEBUGLN(SP - (__brkval ? (uint16_t) __brkval : (uint16_t) &__heap_start));
+//}
