@@ -1,9 +1,13 @@
 #ifndef _UBIRCH_MAIN_H_
 #define _UBIRCH_MAIN_H_
 
+#define MESSAGE_REQUEST_INTERVAL    (30*60000)
+
 // config.h contains sensitive information, like the
 // cell phone APN, username and password
 #include "config.h"
+
+#define RECORD_BUFFER_SIZE  512
 
 // == pins used for the Audio Trinket ==
 
@@ -29,13 +33,21 @@
 #define enable_watchdog()   pinMode(UBIRCH_NO1_PIN_WATCHDOG, INPUT)
 #define disable_watchdog()  pinMode(UBIRCH_NO1_PIN_WATCHDOG, OUTPUT)
 
-#define PRINT(s) minimumSerial.print(F(s))
-#define PRINTLN(s) minimumSerial.println(F(s))
-#define DEBUG(s) minimumSerial.print(s)
-#define DEBUGLN(s) minimumSerial.println(s)
+#undef NDEBUG
+#ifndef NDEBUG
+    MinimumSerial minimumSerial;
 
-// generic classes we use
-MinimumSerial minimumSerial;
+    #define PRINT(s) minimumSerial.print(F(s))
+    #define PRINTLN(s) minimumSerial.println(F(s))
+    #define DEBUG(s) minimumSerial.print(s)
+    #define DEBUGLN(s) minimumSerial.println(s)
+#else
+#   define PRINT(s)
+    #define PRINTLN(s)
+    #define DEBUG(s)
+    #define DEBUGLN(s)
+#endif
+
 SdFat SD;
 
 #endif // _UBIRCH_MAIN_H_

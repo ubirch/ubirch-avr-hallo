@@ -25,13 +25,10 @@
 #include <MinimumSerial.h>
 #include "UbirchSIM800.h"
 
-extern MinimumSerial minimumSerial;
-
-#define NDEBUG
-#define DEBUG_PROGRESS
-
 // show minimumSerial output only in non-release mode
 #ifndef NDEBUG
+extern MinimumSerial minimumSerial;
+
 #   define PRINT(s) minimumSerial.print(F(s))
 #   define PRINTLN(s) minimumSerial.println(F(s))
 #   define DEBUG(...) minimumSerial.print(__VA_ARGS__)
@@ -280,10 +277,11 @@ uint16_t UbirchSIM800::HTTP_get(const char *url, uint32_t &length, STREAM &file)
     uint32_t pos = 0, r = 0;
     do {
         r = HTTP_get_read(buffer, pos, SIM800_BUFSIZE);
-#ifdef DEBUG_PROGRESS
+#ifndef NDEBUG
         if ((pos % 10240) == 0) {
-            minimumSerial.println(pos);
-        } else if (pos % (1024) == 0) { minimumSerial.print(F("<")); }
+            PRINT(" ");
+            DEBUGLN(pos);
+        } else if (pos % (1024) == 0) { PRINT("<"); }
 #endif
         pos += r;
         file.write(buffer, r);
@@ -364,12 +362,11 @@ uint16_t UbirchSIM800::HTTP_post(const char *url, uint32_t &length, STREAM &file
             PRINTLN("EOF");
             break;
         }
-#ifdef DEBUG_PROGRESS
+#ifndef NDEBUG
         if ((pos % 10240) == 0) {
-            minimumSerial.print(pos);
-            minimumSerial.print(F(" "));
-            minimumSerial.println(r);
-        } else if (pos % (1024) == 0) { minimumSerial.print(">"); }
+            PRINT(" ");
+            DEBUGLN(pos);
+        } else if (pos % (1024) == 0) { PRINT(">"); }
 #endif
         pos += r;
     } while (r == SIM800_BUFSIZE);

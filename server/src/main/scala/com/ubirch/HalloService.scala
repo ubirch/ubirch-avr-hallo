@@ -20,24 +20,21 @@ trait HalloService extends HttpService {
         complete("HALLO")
       }
     } ~
-      path("upload") {
-        get {
-          complete("OK")
-        }
+      path("u" / """\d+""".r) { id =>
         detach() {
           post {
             entity(as[Array[Byte]]) { value =>
-              val byteWriter = new FileOutputStream(new File("uploaded.ogg"))
+              val byteWriter = new FileOutputStream(new File(s"upload_$id.ogg"))
               byteWriter.write(value)
               byteWriter.flush()
               byteWriter.close()
-              println("RECEIVED FILE")
-              complete("RECEIVED")
+              println(s"RECEIVED FILE: $id")
+              complete(s"$id")
             }
           }
         }
       } ~
-      path("download") {
-        getFromFile("uploaded.ogg")
+      path("d" / """\d+""".r) { id =>
+        getFromFile(s"upload_$id.ogg")
       }
 }

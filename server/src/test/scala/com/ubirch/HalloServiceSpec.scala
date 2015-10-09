@@ -19,13 +19,13 @@ class HalloServiceSpec extends Specification with Specs2RouteTest with HalloServ
     }
 
     "stores a file for upload" in {
-      Post("/upload", HttpEntity(HttpData(new File("src/test/resources/example.ogg")))) ~> routes ~> check {
-        responseAs[String] must contain("RECEIVED")
+      Post("/u/101", HttpEntity(HttpData(new File("src/test/resources/example.ogg")))) ~> routes ~> check {
+        responseAs[String] must contain("101")
       }
     }
 
     "serves a file for download" in {
-      Get("/download") ~> routes ~> check {
+      Get("/d/101") ~> routes ~> check {
         responseAs[Array[Byte]].length mustEqual 35778
       }
     }
