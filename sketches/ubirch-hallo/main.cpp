@@ -38,7 +38,7 @@ UbirchSIM800 sim800 = UbirchSIM800();
 Adafruit_VS1053_FilePlayer vs1053 =
         Adafruit_VS1053_FilePlayer(BREAKOUT_RESET, BREAKOUT_CS, BREAKOUT_DCS, DREQ, CARDCS);
 
-#define STATE_COLOR(r, g, b)  (state.red=(r),state.green=(g),state.blue=(b), sin_start=4.712)
+#define STATE_COLOR(r, g, b)  (state.red=(r),state.green=(g),state.blue=(b))
 
 struct state_t {
     uint8_t red;
@@ -87,6 +87,17 @@ inline void enable_pulse() {
     TIMSK1 |= (1 << OCIE1A);  // enable timer compare interrupt
 }
 
+void show_color(uint8_t r, uint8_t g, uint8_t b, uint8_t n = 7) {
+    UCSR0B &= ~_BV(RXEN0);
+    uint8_t buffer[8];
+    WS2812_compileRGB(buffer, r, g, b);
+    WS2812_DO_DDR |= _BV(WS2812_DO_BIT);
+    WS2812_transmit_precompiled_sequence(buffer, sizeof(buffer), 8 * n);
+    _delay_us(58);
+    UCSR0B |= _BV(RXEN0);
+}
+
+
 void setup() {
     // disable all the watchdogs
     wdt_disable();
@@ -112,41 +123,42 @@ void setup() {
     // configure the initial values for UART and the connection to SIM800
     minimumSerial.begin((uint32_t) 115200);
 
-    blink(3, 1000);
-
-    STATE_COLOR(255, 0, 0);
-    state.pulse = 1;
+    show_color(0, 0, 0);
+    show_color(0, 128, 0, 1);
 
     PRINTLN("SIM800 wakeup");
     if (!sim800.wakeup()) halt(11);
     sim800.setAPN(F(SIM800_APN), F(SIM800_USER), F(SIM800_PASS));
 
-    STATE_COLOR(255, 128, 0);
+    show_color(00, 128, 0, 2);
     PRINTLN("SIM800 waiting for network registration");
     while (!sim800.registerNetwork()) {
         sim800.shutdown();
         sim800.wakeup();
     }
 
-    STATE_COLOR(255, 255, 0);
+    show_color(0, 128, 0, 3);
     PRINTLN("SIM800 enabling GPRS");
     if (!sim800.enableGPRS()) halt(22);
     PRINTLN("SIM800 initialized");
 
-
     // == SETUP ===============================================
+    show_color(0, 128, 0, 4);
     if (!SD.begin(CARDCS)) {
         PRINTLN("SDCARD not found");
         halt(33);
     }
     PRINTLN("SDCARD initialized");
 
+    show_color(0, 128, 0, 5);
     if (!vs1053.begin()) {
         PRINTLN("VS1053 not found");
         halt(44);
     }
+    vs1053.setVolume(255, 255);
     PRINTLN("VS1053 initialized ");
 
+    show_color(0, 128, 0, 6);
     i2c_init(I2C_SPEED_400KHZ);
     if (!mpr_reset()) {
         PRINTLN("MPR121 not found");
@@ -154,7 +166,7 @@ void setup() {
     }
     PRINTLN("MPR121 initialized");
 
-    STATE_COLOR(0,0,0);
+    show_color(0, 0, 0);
 }
 
 ISR(TIMER1_COMPA_vect) {
@@ -162,25 +174,18 @@ ISR(TIMER1_COMPA_vect) {
         sin_start = sin_start + 0.1;
         if (sin_start > 10.995) sin_start = 4.712;
 
-
         float factor = sin(sin_start);
         uint8_t rh = state.red / 2;
         uint8_t gh = state.green / 2;
         uint8_t bh = state.blue / 2;
 
-        UCSR0B &= ~_BV(RXEN0);
-        uint8_t buffer[8];
-        WS2812_compileRGB(buffer,
-                          (const uint8_t) (factor * rh + rh),
-                          (const uint8_t) (factor * gh + gh),
-                          (const uint8_t) (factor * bh + bh));
-        WS2812_DO_DDR |= _BV(WS2812_DO_BIT);
-        WS2812_transmit_precompiled_sequence(buffer, sizeof(buffer), 8 * 7);
-        _delay_us(58);
-        UCSR0B |= _BV(RXEN0);
+        show_color((const uint8_t) (factor * rh + rh),
+                   (const uint8_t) (factor * gh + gh),
+                   (const uint8_t) (factor * bh + bh));
     }
 }
 
+// play file
 uint8_t play(const char *fname) {
     vs1053.setVolume(1, 1);
     vs1053.useInterrupt(VS1053_FILEPLAYER_TIMER0_INT);
@@ -192,16 +197,49 @@ uint8_t play(const char *fname) {
             unfinished = 1;
             vs1053.stopPlaying();
         }
-        _delay_ms(100);
     }
+    vs1053.setVolume(255, 255);
     // TODO hack to disable the timer interrupt
     TIMSK0 &= ~_BV(OCIE0A);
 
-    STATE_COLOR(0,0,128);
-    while(mpr_status() & _BV(0)) _delay_ms(20);
-    STATE_COLOR(0,0,0);
+    STATE_COLOR(0, 0, 128);
+    while (mpr_status() & _BV(0)) _delay_ms(20);
+    STATE_COLOR(0, 0, 0);
 
     return unfinished;
+}
+
+void saveRecordedData(File &file) {
+    uint16_t available = vs1053.recordedWordsWaiting();
+    if (available < 2) return;
+    while (--available) {
+        file.write(vs1053.recordedReadWord());
+    }
+    file.flush();
+}
+
+void record(const char *fname) {
+    vs1053.setVolume(128, 128);
+    vs1053.prepareRecordOgg((char *) "v44k1q05.img");
+
+    SD.cacheClear();
+    SD.remove(fname);
+    File file = SD.open(fname, O_CREAT | O_TRUNC | O_WRITE);
+
+    vs1053.startRecordOgg(false);
+    PRINTLN("STARTING");
+    STATE_COLOR(31, 0, 0);
+    state.pulse = 1;
+
+    while (mpr_status() & _BV(0)) {
+        saveRecordedData(file);
+    }
+    vs1053.stopRecordOgg();
+    saveRecordedData(file);
+
+    file.close();
+    state.pulse = 0;
+    show_color(0, 0, 0);
 }
 
 #pragma clang diagnostic push
@@ -211,36 +249,57 @@ uint8_t play(const char *fname) {
 void loop() {
     // check if the sensor 0 was touched
     if ((mpr_status() & _BV(0))) {
-        state.pulse = 1;
-
         if (state.message) {
-            STATE_COLOR(0, 0, 0);
+            // if a message is available, play it
+            state.pulse = 0;
+            show_color(0, 0, 0);
+
             PRINTLN("playing downloaded message");
-            state.message = play("m.ogg");
-            // set color to black if we played the whole message
-            if (state.message) STATE_COLOR(0, 255, 0);
+            state.message = play("test.ogg");
+
+            // keep the "message available, if not finished
+            if (state.message) {
+                STATE_COLOR(0, 255, 0);
+                state.pulse = 1;
+            }
         } else {
+            // if no message is available, record a new message
+            state.pulse = 0;
+            show_color(0, 0, 0);
+
             PRINTLN("recording message");
-//            record("r.ogg");
+            record("r.ogg");
+
             PRINTLN("sending recorded message");
-//            sendFile("r.ogg", 3);
-            STATE_COLOR(0, 0, 0);
+            //sendFile("r.ogg", 3);
+            SD.rename("r.ogg", "m.ogg");
+            state.message = 0;
         }
     } else {
+        // this counter is our interval for checking remotely for a new message
         if (--timer < 0) {
             timer = 30 * 60000;
-            // if no message is avaiable, check regularly for a new message
+
+            // if we don't have a message locally available, check remotely
             if (!state.message) {
                 disable_pulse();
                 if (receiveFile("m.ogg")) {
-                    STATE_COLOR(0,255,0);
+                    PRINTLN("RECEIVED NEW MESSAGE");
+                    STATE_COLOR(0, 255, 0);
                     state.pulse = 1;
                     state.message = 1;
+                } else {
+                    PRINTLN("NO NEW MESSAGE (or error)");
+                    state.pulse = 0;
+                    show_color(0, 255, 0);
+                    state.message = 0;
                 }
                 enable_pulse();
             }
         }
-        if (timer % 1000 == 0) minimumSerial.print(state.message ? "!" : ".");
+        if (timer % 1000 == 0) {
+            minimumSerial.print(state.message ? "!" : ".");
+        }
     }
 }
 
@@ -293,9 +352,12 @@ bool receiveFile(const char *fname) {
 
     SD.cacheClear();
     SD.remove(fname);
-    File file = SD.open(fname, O_WRONLY | O_CREAT | O_TRUNC);
-    if (!file) return false;
 
+    File file = SD.open(fname, O_WRONLY | O_CREAT | O_TRUNC);
+    if (!file) {
+        PRINTLN("ERROR: can't delete file");
+        return false;
+    }
     status = sim800.HTTP_get("http://api.ubirch.com:23456/download", length, file);
     file.close();
 
