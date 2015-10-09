@@ -1,7 +1,17 @@
 #ifndef _UBIRCH_MAIN_H_
 #define _UBIRCH_MAIN_H_
 
+// this interval is an approximation (like 3-5minutes)
 #define MESSAGE_REQUEST_INTERVAL    (30*60000)
+
+// the colors used to indicate status
+#define STATE_C_OFF     0,0,0
+#define STATE_C_INIT    0,32,0
+#define STATE_C_ERROR   128,0,0
+#define STATE_C_OK      0,255,0
+// busy indicates the system is busy and cannot accept user input
+#define STATE_C_BUSY    0,0,5
+
 
 // config.h contains sensitive information, like the
 // cell phone APN, username and password

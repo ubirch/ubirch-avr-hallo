@@ -38,35 +38,16 @@ UbirchSIM800 sim800 = UbirchSIM800();
 Adafruit_VS1053_FilePlayer vs1053 =
         Adafruit_VS1053_FilePlayer(BREAKOUT_RESET, BREAKOUT_CS, BREAKOUT_DCS, DREQ, CARDCS);
 
-#define STATE_C_OFF     0,0,0
-#define STATE_C_INIT    0,32,0
-#define STATE_C_ERROR   128,0,0
-#define STATE_C_OK      0,255,0
-#define STATE_C_BUSY    0,0,5
-
 struct state_t {
     uint8_t red;
     uint8_t green;
     uint8_t blue;
-    uint8_t numled : 3;
+    uint8_t numled : 3; // 0-7
     uint8_t pulse : 1;
     uint8_t message : 1;
 };
 
 volatile state_t state;
-long timer = 10000;
-volatile float sin_start = 4.712;
-
-void blink(uint8_t n, unsigned long speed) {
-    digitalWrite(UBIRCH_NO1_PIN_LED, LOW);
-    for (int i = n * 2; i > 0; i--) {
-        PRINT(".");
-        digitalWrite(UBIRCH_NO1_PIN_LED, i % 2 == 0 ? HIGH : LOW);
-        delay(speed);
-    }
-    digitalWrite(UBIRCH_NO1_PIN_LED, LOW);
-    PRINTLN("");
-}
 
 inline void disable_pulse() {
     TIMSK1 &= ~(1 << OCIE1A);  // enable timer compare interrupt
@@ -96,6 +77,8 @@ void set_color(uint8_t r, uint8_t g, uint8_t b, uint8_t n = 7) {
 
 ISR(TIMER1_COMPA_vect) {
     if (state.pulse) {
+        float sin_start = 4.712;
+
         sin_start = sin_start + 0.1;
         if (sin_start > 10.995) sin_start = 4.712;
 
@@ -366,6 +349,8 @@ bool receiveFile(const char *fname) {
 
 
 void loop() {
+    long timer = 10000;
+
     // check if the sensor 0 was touched
     if ((mpr_status() & _BV(0))) {
         if (state.message) {
