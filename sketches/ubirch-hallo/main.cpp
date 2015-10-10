@@ -50,11 +50,11 @@ struct state_t {
 volatile state_t state;
 
 inline void disable_pulse() {
-    TIMSK1 &= ~(1 << OCIE1A);  // enable timer compare interrupt
+    TIMSK1 &= ~_BV(OCIE1A);  // enable timer compare interrupt
 }
 
 inline void enable_pulse() {
-    TIMSK1 |= (1 << OCIE1A);  // enable timer compare interrupt
+    TIMSK1 |= _BV(OCIE1A);  // enable timer compare interrupt
 }
 
 void show_color(uint8_t r, uint8_t g, uint8_t b, uint8_t n = 7) {
@@ -129,9 +129,9 @@ void setup() {
     TCNT1 = 0;
 
     OCR1A = (F_CPU / 256 / 10);  // compare match register 16MHz/256/xxHz
-    TCCR1B |= (1 << WGM12);   // CTC mode
-    TCCR1B |= (1 << CS12);    // 256 prescaler
-    TIMSK1 |= (1 << OCIE1A);  // enable timer compare interrupt
+    TCCR1B |= _BV(WGM12);   // CTC mode
+    TCCR1B |= _BV(CS12);    // 256 prescaler
+    TIMSK1 |= _BV(OCIE1A);  // enable timer compare interrupt
 
     // set output register for LEDs
     WS2812_DO_DDR |= _BV(WS2812_DO_BIT);
