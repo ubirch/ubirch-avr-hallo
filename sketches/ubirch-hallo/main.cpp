@@ -57,7 +57,7 @@ inline void enable_pulse() {
     TIMSK1 |= _BV(OCIE1A);  // enable timer compare interrupt
 }
 
-void show_color(uint8_t r, uint8_t g, uint8_t b, uint8_t n = 7) {
+void show_color(uint8_t r, uint8_t g, uint8_t b, uint8_t n) {
     UCSR0B &= ~_BV(RXEN0);
     uint8_t buffer[8];
     WS2812_compileRGB(buffer, r, g, b);
@@ -77,7 +77,7 @@ void set_color(uint8_t r, uint8_t g, uint8_t b, uint8_t n = 7) {
 
 ISR(TIMER1_COMPA_vect) {
     if (state.pulse) {
-        float sin_start = 4.712;
+        static float sin_start = 4.712;
 
         sin_start = sin_start + 0.1;
         if (sin_start > 10.995) sin_start = 4.712;
@@ -119,7 +119,6 @@ void setup() {
     // disable all the watchdogs
     wdt_disable();
     disable_watchdog();
-
 
     // setup interrupt that controls our pulsing light
     cli();
@@ -314,13 +313,18 @@ bool sendFile(const char *fname, uint8_t retries) {
     uint16_t status;
     uint32_t length;
 
+    // generate the server url from base and imei
+    char url[strlen_P(SERVER_URL) + 16];
+    strncpy_P(url, SERVER_URL, strlen_P(SERVER_URL));
+    sim800.IMEI(url + strlen_P(SERVER_URL));
+
     do {
         SD.cacheClear();
         File file = SD.open(fname, O_RDONLY);
-        status = sim800.HTTP_post("http://api.ubirch.com:23456/u/1", length, file, file.fileSize());
+        status = sim800.HTTP_post(url, length, file, file.fileSize());
         file.close();
 
-        if(status == 200) break;
+        if (status == 200) break;
     } while (--retries);
     return false;
 }
@@ -338,7 +342,13 @@ bool receiveFile(const char *fname) {
         PRINTLN("ERROR: can't delete file");
         return false;
     }
-    status = sim800.HTTP_get("http://api.ubirch.com:23456/d/1", length, file);
+
+    // generate the server url from base and imei
+    char url[strlen_P(SERVER_URL) + 16];
+    strncpy_P(url, SERVER_URL, strlen_P(SERVER_URL));
+    sim800.IMEI(url + strlen_P(SERVER_URL));
+
+    status = sim800.HTTP_get(url, length, file);
     file.close();
 
     return status == 200;
@@ -347,9 +357,8 @@ bool receiveFile(const char *fname) {
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
 
-
 void loop() {
-    long timer = 10000;
+    static long timer = 10000;
 
     // check if the sensor 0 was touched
     if ((mpr_status() & _BV(0))) {
@@ -363,7 +372,7 @@ void loop() {
 
             // keep the "message available, if not finished
             if (state.message) {
-                set_color(0, 255, 0);
+                set_color(STATE_C_MESSAGE);
                 state.pulse = 1;
             }
         } else {
@@ -384,6 +393,7 @@ void loop() {
             enable_pulse();
         }
     } else {
+        enable_watchdog();
         // this counter is our interval for checking remotely for a new message
         if (--timer < 0) {
             timer = MESSAGE_REQUEST_INTERVAL;
@@ -394,8 +404,8 @@ void loop() {
                 set_color(STATE_C_BUSY);
                 if (receiveFile("m.ogg")) {
                     PRINTLN("RECEIVED NEW MESSAGE");
-                    set_color(0, 255, 0);
                     state.pulse = 1;
+                    set_color(STATE_C_MESSAGE);
                     state.message = 1;
                 } else {
                     PRINTLN("NO NEW MESSAGE (or error)");
@@ -409,6 +419,7 @@ void loop() {
         if (timer % 1000 == 0) {
             DEBUG(state.message ? "!" : ".");
         }
+        disable_watchdog();
     }
 }
 

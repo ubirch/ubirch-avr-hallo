@@ -11,6 +11,7 @@
 #define STATE_C_OK      0,255,0
 // busy indicates the system is busy and cannot accept user input
 #define STATE_C_BUSY    0,0,5
+#define STATE_C_MESSAGE  0,128,0
 
 
 // config.h contains sensitive information, like the
@@ -59,5 +60,6 @@
 #endif
 
 SdFat SD;
+const char SERVER_URL[] PROGMEM = "http://api.ubirch.com:23456/";
 
 #endif // _UBIRCH_MAIN_H_
