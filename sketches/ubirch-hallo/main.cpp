@@ -169,7 +169,6 @@ void setup() {
     PRINTLN("MPR121 initialized");
 
     set_color(STATE_C_INIT, 4);
-    PRINTLN("SIM800 wakeup");
     if (!sim800.wakeup()) {
         PRINTLN("SIM800 wakeup error");
         halt(3);
@@ -177,19 +176,18 @@ void setup() {
     sim800.setAPN(F(SIM800_APN), F(SIM800_USER), F(SIM800_PASS));
 
     set_color(STATE_C_INIT, 5);
-    PRINTLN("SIM800 waiting for network registration");
     while (!sim800.registerNetwork()) {
         sim800.shutdown();
         sim800.wakeup();
     }
+    PRINTLN("SIM800 network attached");
 
     set_color(STATE_C_INIT, 6);
-    PRINTLN("SIM800 enabling GPRS");
     if (!sim800.enableGPRS()) {
         PRINTLN("SIM800 can't enable GPRS");
         halt(4);
     }
-    PRINTLN("SIM800 initialized");
+    PRINTLN("SIM800 GPRS attached");
 
     set_color(STATE_C_OK);
     _delay_ms(1000);
@@ -396,7 +394,7 @@ void loop() {
         enable_watchdog();
         // this counter is our interval for checking remotely for a new message
         if (--timer < 0) {
-            timer = MESSAGE_REQUEST_INTERVAL;
+            timer = 60000; //MESSAGE_REQUEST_INTERVAL;
 
             // if we don't have a message locally available, check remotely
             if (!state.message) {
