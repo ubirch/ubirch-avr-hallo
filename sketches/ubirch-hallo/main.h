@@ -53,13 +53,15 @@
     #define DEBUG(s) minimumSerial.print(s)
     #define DEBUGLN(s) minimumSerial.println(s)
 #else
-#   define PRINT(s)
+    #define PRINT(s)
     #define PRINTLN(s)
     #define DEBUG(s)
     #define DEBUGLN(s)
 #endif
 
 SdFat SD;
+
+// the server url for up and download (BASE)
 const char SERVER_URL[] PROGMEM = "http://api.ubirch.com:23456/";
 
 #endif // _UBIRCH_MAIN_H_

@@ -416,7 +416,7 @@ void loop() {
                 enable_pulse();
             }
         }
-        if (timer % 1000 == 0) {
+        if (timer % 10000 == 0) {
             DEBUG(state.message ? "!" : ".");
         }
         disable_watchdog();
