@@ -49,6 +49,9 @@ struct state_t {
 
 volatile state_t state;
 
+static const char *const message_ogg = "m.ogg";
+static const char *const recorded_ogg = "r.ogg";
+
 inline void disable_pulse() {
     TIMSK1 &= ~_BV(OCIE1A);  // enable timer compare interrupt
 }
@@ -332,12 +335,15 @@ bool receiveFile(const char *fname) {
     uint16_t status;
     uint32_t length;
 
-    SD.cacheClear();
-    SD.remove(fname);
+    if(SD.exists(fname)) {
+        PRINTLN("unplayed message exists");
+        return true;
+    }
 
+    SD.cacheClear();
     File file = SD.open(fname, O_WRONLY | O_CREAT | O_TRUNC);
     if (!file) {
-        PRINTLN("ERROR: can't delete file");
+        PRINTLN("ERROR: can't create file");
         return false;
     }
 
@@ -366,12 +372,14 @@ void loop() {
             state.pulse = 0;
 
             PRINTLN("playing downloaded message");
-            state.message = play("m.ogg");
+            state.message = play(message_ogg);
 
             // keep the "message available, if not finished
             if (state.message) {
                 set_color(STATE_C_MESSAGE);
                 state.pulse = 1;
+            } else {
+                SD.remove(message_ogg);
             }
         } else {
             // if no message is available, record a new message
@@ -380,12 +388,12 @@ void loop() {
 
             PRINTLN("recording message");
             disable_pulse();
-            record("r.ogg");
+            record(recorded_ogg);
             enable_pulse();
 
             set_color(STATE_C_BUSY);
             PRINTLN("sending recorded message");
-            sendFile("r.ogg", 3);
+            sendFile(recorded_ogg, 3);
             set_color(STATE_C_OFF);
             state.message = 0;
             enable_pulse();
@@ -394,13 +402,13 @@ void loop() {
         enable_watchdog();
         // this counter is our interval for checking remotely for a new message
         if (--timer < 0) {
-            timer = 60000; //MESSAGE_REQUEST_INTERVAL;
+            timer = MESSAGE_REQUEST_INTERVAL;
 
             // if we don't have a message locally available, check remotely
             if (!state.message) {
                 disable_pulse();
                 set_color(STATE_C_BUSY);
-                if (receiveFile("m.ogg")) {
+                if (receiveFile(message_ogg)) {
                     PRINTLN("RECEIVED NEW MESSAGE");
                     state.pulse = 1;
                     set_color(STATE_C_MESSAGE);
