@@ -1,8 +1,8 @@
 package com.ubirch
 
-import java.io.{FilenameFilter, File, FileOutputStream}
+import java.io.{File, FileOutputStream}
 import java.text.SimpleDateFormat
-import java.util.{TimeZone, Calendar}
+import java.util.{Calendar, TimeZone}
 
 import akka.actor.Actor
 import spray.http.HttpResponse
