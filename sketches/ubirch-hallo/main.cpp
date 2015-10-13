@@ -355,6 +355,9 @@ bool receiveFile(const char *fname) {
     status = sim800.HTTP_get(url, length, file);
     file.close();
 
+    // remove erroneous content
+    if(status != 200) SD.remove(fname);
+
     return status == 200;
 }
 
