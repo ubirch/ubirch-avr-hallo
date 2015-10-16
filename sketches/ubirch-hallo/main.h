@@ -19,6 +19,8 @@
 #include "config.h"
 
 #define RECORD_BUFFER_SIZE  512
+#define RECORD_VOLUME       100
+#define RECORD_MIC          false
 
 // == pins used for the Audio Trinket ==
 

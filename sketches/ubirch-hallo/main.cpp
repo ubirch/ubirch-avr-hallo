@@ -259,7 +259,7 @@ uint16_t saveRecordedData(uint8_t *buffer, size_t buffer_size, File &file, bool 
 // record message to SD card
 void record(const char *fname) {
     // we need to set a certain volume for recording, also affects the speaker unfortunately
-    vs1053.setVolume(100, 100);
+    vs1053.setVolume(RECORD_VOLUME, RECORD_VOLUME);
 
     // this takes a while ....
     vs1053.prepareRecordOgg((char *) "v44k1q05.img");
@@ -269,7 +269,7 @@ void record(const char *fname) {
     File file = SD.open(fname, O_CREAT | O_TRUNC | O_WRITE);
     uint8_t *buffer = (uint8_t *) malloc(RECORD_BUFFER_SIZE);
 
-    vs1053.startRecordOgg(false);
+    vs1053.startRecordOgg(RECORD_MIC);
     set_color(31, 0, 0);
 
     // loop while checking touch and saving the data
