@@ -23,7 +23,8 @@ class HalloServiceActor extends Actor with ActorLogging {
 
   final val dataDir = new File("data")
   var connections: Map[String, String] = Map(
-    //    "866224021719199" -> "866224021719199"
+    "866224021723183" -> "866224021727127",
+    "866224021727127" -> "866224021723183"
   )
 
   def receive = {

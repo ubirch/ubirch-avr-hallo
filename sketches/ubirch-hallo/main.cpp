@@ -162,6 +162,13 @@ void setup() {
     state.pulse = 0;
     PRINTLN("SDCARD initialized");
 
+    // preload recording plugin
+    if(!vs1053.prepareRecordOgg((char *) "v44k1q05.img")) {
+        PRINTLN("VS1053 recording plugin missing");
+        halt(2);
+    };
+    PRINTLN("VS1053 recording plugin initialized ");
+
     set_color(STATE_C_INIT, 3);
     i2c_init(I2C_SPEED_400KHZ);
     if (!mpr_reset()) {
@@ -202,7 +209,8 @@ void setup() {
 uint8_t play(const char *fname) {
     SD.cacheClear();
 
-    vs1053.setVolume(10, 10);
+    vs1053.reset();
+    vs1053.setVolume(1, 1);
     vs1053.useInterrupt(VS1053_FILEPLAYER_TIMER0_INT);
     vs1053.startPlayingFile(fname);
 
@@ -260,9 +268,6 @@ uint16_t saveRecordedData(uint8_t *buffer, size_t buffer_size, File &file, bool 
 void record(const char *fname) {
     // we need to set a certain volume for recording, also affects the speaker unfortunately
     vs1053.setVolume(RECORD_VOLUME, RECORD_VOLUME);
-
-    // this takes a while ....
-    vs1053.prepareRecordOgg((char *) "v44k1q05.img");
 
     SD.cacheClear();
     SD.remove(fname);
@@ -375,6 +380,7 @@ void loop() {
             state.pulse = 0;
 
             PRINTLN("playing downloaded message");
+            set_color(STATE_C_BUSY);
             state.message = play(message_ogg);
 
             // keep the "message available, if not finished
@@ -383,6 +389,11 @@ void loop() {
                 state.pulse = 1;
             } else {
                 SD.remove(message_ogg);
+                // preload recording plugin
+                vs1053.prepareRecordOgg((char *) "v44k1q05.img");
+                set_color(STATE_C_OFF);
+                state.message = 0;
+
             }
         } else {
             // if no message is available, record a new message
@@ -400,6 +411,9 @@ void loop() {
             set_color(STATE_C_OFF);
             state.message = 0;
             enable_pulse();
+
+            // preload recording plugin
+            vs1053.prepareRecordOgg((char *) "v44k1q05.img");
         }
     } else {
         enable_watchdog();

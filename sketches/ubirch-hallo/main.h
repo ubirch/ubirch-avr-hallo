@@ -2,7 +2,7 @@
 #define _UBIRCH_MAIN_H_
 
 // this interval is an approximation (like 3-5minutes)
-#define MESSAGE_REQUEST_INTERVAL    (30*60000)
+#define MESSAGE_REQUEST_INTERVAL    (5*60000)
 
 // the colors used to indicate status
 #define STATE_C_OFF     0,0,0
@@ -19,7 +19,7 @@
 #include "config.h"
 
 #define RECORD_BUFFER_SIZE  512
-#define RECORD_VOLUME       100
+#define RECORD_VOLUME       50
 #define RECORD_MIC          false
 
 // == pins used for the Audio Trinket ==
