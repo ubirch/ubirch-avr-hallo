@@ -42,7 +42,7 @@ struct state_t {
     uint8_t red;
     uint8_t green;
     uint8_t blue;
-    uint8_t numled : 3; // 0-7
+    uint8_t numled : 4; // 0-16 (10 used)
     uint8_t pulse : 1;
     uint8_t message : 1;
 };
@@ -70,7 +70,7 @@ void show_color(uint8_t r, uint8_t g, uint8_t b, uint8_t n) {
     UCSR0B |= _BV(RXEN0);
 }
 
-void set_color(uint8_t r, uint8_t g, uint8_t b, uint8_t n = 7) {
+void set_color(uint8_t r, uint8_t g, uint8_t b, uint8_t n = 10) {
     state.red = r;
     state.green = g;
     state.blue = b;
@@ -162,14 +162,15 @@ void setup() {
     state.pulse = 0;
     PRINTLN("SDCARD initialized");
 
+    set_color(STATE_C_INIT, 3);
     // preload recording plugin
-    if(!vs1053.prepareRecordOgg((char *) "v44k1q05.img")) {
+    if (!vs1053.prepareRecordOgg((char *) "v44k1q05.img")) {
         PRINTLN("VS1053 recording plugin missing");
         halt(2);
     };
     PRINTLN("VS1053 recording plugin initialized ");
 
-    set_color(STATE_C_INIT, 3);
+    set_color(STATE_C_INIT, 4);
     i2c_init(I2C_SPEED_400KHZ);
     if (!mpr_reset()) {
         PRINTLN("MPR121 not found");
@@ -178,21 +179,21 @@ void setup() {
     state.pulse = 0;
     PRINTLN("MPR121 initialized");
 
-    set_color(STATE_C_INIT, 4);
+    set_color(STATE_C_INIT, 5);
     if (!sim800.wakeup()) {
         PRINTLN("SIM800 wakeup error");
         halt(3);
     }
     sim800.setAPN(F(SIM800_APN), F(SIM800_USER), F(SIM800_PASS));
 
-    set_color(STATE_C_INIT, 5);
+    set_color(STATE_C_INIT, 6);
     while (!sim800.registerNetwork()) {
         sim800.shutdown();
         sim800.wakeup();
     }
     PRINTLN("SIM800 network attached");
 
-    set_color(STATE_C_INIT, 6);
+    set_color(STATE_C_INIT, 7);
     if (!sim800.enableGPRS()) {
         PRINTLN("SIM800 can't enable GPRS");
         halt(4);
@@ -340,7 +341,7 @@ bool receiveFile(const char *fname) {
     uint16_t status;
     uint32_t length;
 
-    if(SD.exists(fname)) {
+    if (SD.exists(fname)) {
         PRINTLN("unplayed message exists");
         return true;
     }
@@ -361,7 +362,7 @@ bool receiveFile(const char *fname) {
     file.close();
 
     // remove erroneous content
-    if(status != 200) SD.remove(fname);
+    if (status != 200) SD.remove(fname);
 
     return status == 200;
 }

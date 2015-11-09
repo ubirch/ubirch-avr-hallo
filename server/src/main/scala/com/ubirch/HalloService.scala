@@ -1,13 +1,15 @@
 package com.ubirch
 
 import java.io.{File, FileOutputStream}
+import java.nio.file.{Paths, Path, StandardCopyOption, Files}
 import java.text.SimpleDateFormat
-import java.util.{Calendar, TimeZone}
+import java.util.{Date, Calendar, TimeZone}
 
 import akka.actor.{Actor, ActorLogging}
 import akka.util.Timeout
 import spray.can.Http
 import spray.http._
+import spray.httpx.SprayJsonSupport
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -17,14 +19,18 @@ case class DeleteFile(file: File)
 class HalloServiceActor extends Actor with ActorLogging {
   implicit val timeout: Timeout = 1.second // for the actor 'asks'
 
-  import context.dispatcher
-
-  // ExecutionContext for the futures and scheduler
-
   final val dataDir = new File("data")
-  var connections: Map[String, String] = Map(
-    "866224021723183" -> "866224021727127",
-    "866224021727127" -> "866224021723183"
+  var status: Map[String, Date] = Map()
+
+  // 866224021727127 - Stephan (grosse Puppe)
+  // 866224021723183 - Stephan (kleine Puppe)
+  // 860719020980821 - Berlin (Hallo#0-1)
+  // 866224021716898 - Stefan
+  var connections: Map[String, Seq[String]] = Map(
+    "866224021723183" -> Seq("860719020980821", "866224021727127", "866224021716898"),
+    "866224021727127" -> Seq("860719020980821", "866224021723183", "866224021716898"),
+    "860719020980821" -> Seq("866224021727127", "866224021723183", "866224021716898"),
+    "866224021716898" -> Seq("866224021727127", "866224021723183", "860719020980821")
   )
 
   def receive = {
@@ -34,10 +40,26 @@ class HalloServiceActor extends Actor with ActorLogging {
       log.info("HALLO")
       sender ! HttpResponse(entity = "HALLO")
 
+    case HttpRequest(HttpMethods.GET, Uri.Path("/status"), _, _, _) =>
+      val statusFiles = connections.keys.map { id =>
+        val files = dataDir.listFiles
+          .filter(f => f.getName.matches(s"message_${id}_\\d+\\.ogg"))
+          .sortBy(_.getName)
+        (id, status.get(id), files)
+      }
+
+      val statusResponse = statusFiles.map {
+        case (id, date, files) =>
+          s"$id (${date.map(_.toString).getOrElse("never checked")})\n\t${files.map(f => f.getName + " " + f.length()).mkString("\n\t")}"
+      }.mkString("\n")
+
+      sender ! HttpResponse(entity = statusResponse)
+
     case HttpRequest(HttpMethods.GET, Uri.Path(pathId), _, _, _) if pathId.matches("/\\d+") =>
       val id = pathId.substring(1)
       if (dataDir.exists()) {
         log.info(s"GET: $id")
+        status += (id -> new Date)
         // try to find the newest file available
         val file = dataDir.listFiles
           .filter(f => f.getName.matches(s"message_${id}_\\d+\\.ogg"))
@@ -58,24 +80,35 @@ class HalloServiceActor extends Actor with ActorLogging {
       dataDir.mkdir()
 
       log.info(s"POST $id")
-      val recipient = connections.getOrElse(id, id)
+      val recipients: Seq[String] = connections.getOrElse(id, Seq(id)) match {
+        case r if r.isEmpty => Seq(id)
+        case r => r
+      }
+
+
       val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
       val df = new SimpleDateFormat("yyyyMMddHHmmss")
-      val name = s"message_${recipient}_${df.format(cal.getTimeInMillis)}"
+      val timestamp: String = df.format(cal.getTimeInMillis)
+      val received = s"received_${id}_$timestamp"
 
-      val file = new File(dataDir, s"$name.tmp")
-      val byteWriter = new FileOutputStream(file)
+      val receivedFile = new File(dataDir, s"$received.tmp")
+      val byteWriter = new FileOutputStream(receivedFile)
       byteWriter.write(entity.data.toByteArray)
       byteWriter.flush()
       byteWriter.close()
-      log.info(s"SAVED ${file.getName}")
+      log.info(s"SAVED ${receivedFile.getName}")
 
-      val target = new File(dataDir, s"$name.ogg")
-      if (file.renameTo(target)) {
-        sender ! HttpResponse(status = StatusCodes.OK)
-      } else {
-        sender ! HttpResponse(status = StatusCodes.ServiceUnavailable)
+      recipients.foreach { recipient =>
+        val targetFile = new File(dataDir, s"message_${recipient}_$timestamp.ogg")
+        try {
+          val result = Files.copy(Paths.get(receivedFile.toURI), Paths.get(targetFile.toURI))
+        } catch {
+          case e: Exception =>
+            log.error(s"can't copy target file: $targetFile", e);
+        }
       }
+      receivedFile.delete()
+      sender ! HttpResponse(status = StatusCodes.OK)
 
     case _: HttpRequest => sender ! HttpResponse(status = StatusCodes.NotFound)
 

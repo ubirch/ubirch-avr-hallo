@@ -25,7 +25,7 @@
 #include <MinimumSerial.h>
 #include "UbirchSIM800.h"
 
-//#define DEBUG_AT
+#define DEBUG_AT
 //#define DEBUG_PACKETS
 #define DEBUG_PROGRESS
 
