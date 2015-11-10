@@ -409,12 +409,13 @@ void loop() {
             set_color(STATE_C_BUSY);
             PRINTLN("sending recorded message");
             sendFile(recorded_ogg, 3);
-            set_color(STATE_C_OFF);
-            state.message = 0;
-            enable_pulse();
 
             // preload recording plugin
             vs1053.prepareRecordOgg((char *) "v44k1q05.img");
+
+            set_color(STATE_C_OFF);
+            state.message = 0;
+            enable_pulse();
         }
     } else {
         enable_watchdog();
