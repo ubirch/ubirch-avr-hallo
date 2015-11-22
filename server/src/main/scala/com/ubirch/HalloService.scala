@@ -27,10 +27,10 @@ class HalloServiceActor extends Actor with ActorLogging {
   // 860719020980821 - Berlin (Hallo#0-1)
   // 866224021716898 - Stefan
   var connections: Map[String, Seq[String]] = Map(
-    "866224021723183" -> Seq("860719020980821", "866224021727127", "866224021716898"),
-    "866224021727127" -> Seq("860719020980821", "866224021723183", "866224021716898"),
-    "860719020980821" -> Seq("866224021727127", "866224021723183", "866224021716898"),
-    "866224021716898" -> Seq("866224021727127", "866224021723183", "860719020980821")
+    "866224021723183" -> Seq("866224021727127"),
+    "866224021727127" -> Seq("866224021723183"),
+    "860719020980821" -> Seq("866224021716898"),
+    "866224021716898" -> Seq("860719020980821")
   )
 
   def receive = {
@@ -80,12 +80,6 @@ class HalloServiceActor extends Actor with ActorLogging {
       dataDir.mkdir()
 
       log.info(s"POST $id")
-      val recipients: Seq[String] = connections.getOrElse(id, Seq(id)) match {
-        case r if r.isEmpty => Seq(id)
-        case r => r
-      }
-
-
       val cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
       val df = new SimpleDateFormat("yyyyMMddHHmmss")
       val timestamp: String = df.format(cal.getTimeInMillis)
@@ -98,10 +92,16 @@ class HalloServiceActor extends Actor with ActorLogging {
       byteWriter.close()
       log.info(s"SAVED ${receivedFile.getName}")
 
+      val recipients: Seq[String] = connections.getOrElse(id, Seq(id)) match {
+        case r if r.isEmpty => Seq(id)
+        case r => r
+      }
+      log.info(s"${recipients}")
       recipients.foreach { recipient =>
         val targetFile = new File(dataDir, s"message_${recipient}_$timestamp.ogg")
         try {
           val result = Files.copy(Paths.get(receivedFile.toURI), Paths.get(targetFile.toURI))
+          log.info(s"message: ${result}")
         } catch {
           case e: Exception =>
             log.error(s"can't copy target file: $targetFile", e);
