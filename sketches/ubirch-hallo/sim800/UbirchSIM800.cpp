@@ -666,7 +666,7 @@ bool UbirchSIM800::expect_scan(const __FlashStringHelper *pattern, void *ref, vo
 }
 
 bool UbirchSIM800::is_urc(const char *line, size_t len) {
-    return true;
+    return false;
 }
 
 //bool UbirchSIM800::is_urc(const char *line, size_t len) {
