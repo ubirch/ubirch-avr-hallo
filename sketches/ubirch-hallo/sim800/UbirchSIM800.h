@@ -1,5 +1,7 @@
 /**
- * ...
+ * UbirchSIM800 is a class interfaces with the SIM800 chip to
+ * provide functionality for uploading and downloading data via
+ * the mobile phone network.
  *
  * @author Matthias L. Jugel
  *
@@ -24,21 +26,37 @@
 
 // SIM800H settings
 #include <stdint.h>
+#include <Stream.h>
+
+#define STREAM Stream
+
+#ifdef __AVR__
 #include <SoftwareSerial.h>
 #if ARDUINO_FILE_USES_STREAM == 0
 #include <SdFat.h>
+#undef STREAM
 #define STREAM FatFile
-#else
-#include <Stream.h>
-#define STREAM Stream
 #endif
 
+// this is the maximum I could do using the board-mounted SIM800 on the ubirch #1
+// if you are using an externally wired Modem, you may have to try a lower baud rate
 #define SIM800_BAUD 57600
 #define SIM800_RX   2
 #define SIM800_TX   3
 #define SIM800_RST  4
 #define SIM800_KEY  7
 #define SIM800_PS   8
+#else
+#define SIM800_BAUD 115200
+#define SIM800_RST  6
+#define SIM800_KEY  7
+#define SIM800_PS   8
+#ifdef F
+#undef F
+#define F(s) (s)
+#endif
+#define __FlashStringHelper char
+#endif
 
 #define SIM800_CMD_TIMEOUT 30000
 #define SIM800_SERIAL_TIMEOUT 1000
@@ -47,6 +65,9 @@
 class UbirchSIM800 {
 
 public:
+    // if an unsolicitited result code is detected, it's number (0-18) is set here
+//    uint8_t urc_status = 0xff;
+
     UbirchSIM800();
 
     // stores apn, username and password for the time beeing
@@ -84,53 +105,37 @@ public:
     bool status();
 
     // connect a pure network connection, may send() data after it is opened
-    bool connect(const char *address, uint16_t port, uint16_t timeout = SIM800_CMD_TIMEOUT);
+    bool connect(const char *address, unsigned short int port, uint16_t timeout = SIM800_CMD_TIMEOUT);
 
     // disconnect a pure network connection
     bool disconnect();
 
     // send data down a pure network connection
-    bool send(char *buffer, size_t size, size_t &accepted);
+    bool send(char *buffer, size_t size, unsigned long int &accepted);
 
     size_t receive(char *buffer, size_t size);
 
     /**
      * HTTP requests only handle data up to 319488 bytes
-     * This seems to be a limitation of the chip, an
+     * This seems to be a limitation of the chip, a
      * larger payload will result in a 602 No Memory
      * result code
      */
 
     // HTTP GET request, returns the status and puts length in the referenced variable
-    uint16_t HTTP_get(const char *url, uint32_t &length);
+    unsigned short int HTTP_get(const char *url, unsigned long int &length);
 
     // HTTP GET request, stores the received data in the stream (if length is > 0)
-    uint16_t HTTP_get(const char *url, uint32_t &length, STREAM &file);
+    unsigned short int HTTP_get(const char *url, unsigned long int &length, STREAM &file);
 
     // manually read the payload after a GET request, returns the amount read, call multiple times to read whole
     size_t HTTP_get_read(char *buffer, uint32_t start, size_t length);
 
     // HTTP HTTP_post request, returns the status
-    uint16_t HTTP_post(const char *url, uint32_t &length);
+    unsigned short int HTTP_post(const char *url, unsigned long int &length);
 
     // HTTP HTTP_post request, reads the data from the stream and returns the result
-    uint16_t HTTP_post(const char *url, uint32_t &length, STREAM &file, uint32_t size);
-
-protected:
-    SoftwareSerial _serial = SoftwareSerial(SIM800_TX, SIM800_RX);
-    const uint32_t _serialSpeed = SIM800_BAUD;
-    const __FlashStringHelper *_apn;
-    const __FlashStringHelper *_user;
-    const __FlashStringHelper *_pass;
-
-    // read raw data
-    size_t read(char *buffer, size_t length);
-
-    // read a single line into the given buffer
-    size_t readline(char *buffer, size_t max, uint16_t timeout);
-
-    // eat input until no more is available, basically sucks up echos and left over status messages
-    void eatEcho();
+    unsigned short int HTTP_post(const char *url, unsigned long int &length, STREAM &file, uint32_t size);
 
     // send a command (without AT) and expect it to return a certain string
     bool expect_AT(const __FlashStringHelper *cmd, const __FlashStringHelper *expected,
@@ -157,20 +162,78 @@ protected:
     bool expect_scan(const __FlashStringHelper *pattern, void *ref, void *ref1, void *ref2,
                      uint16_t timeout = SIM800_SERIAL_TIMEOUT);
 
-private:
+    // read raw data
+    size_t read(char *buffer, size_t length);
 
-    void print(const __FlashStringHelper *s);
+    // read a single line into the given buffer
+    size_t readline(char *buffer, size_t max, uint16_t timeout);
+
 
     void print(const char *s);
 
     void print(uint32_t s);
 
-    void println(const __FlashStringHelper *s);
-
     void println(const char *s);
+
+#ifdef __AVR__
+    void print(const __FlashStringHelper *s);
+    void println(const __FlashStringHelper *s);
+#endif
 
     void println(uint32_t s);
 
+#ifdef __AVR__
+    SoftwareSerial _serial = SoftwareSerial(SIM800_TX, SIM800_RX);
+#else
+    HardwareSerial2 _serial = Serial2;
+#endif
+
+protected:
+    const uint32_t _serialSpeed = SIM800_BAUD;
+    const __FlashStringHelper *_apn;
+    const __FlashStringHelper *_user;
+    const __FlashStringHelper *_pass;
+
+    // eat input until no more is available, basically sucks up echos and left over status messages
+    void eatEcho();
+
+    bool is_urc(const char *line, size_t len);
 };
+
+//// this useful list found here: https://github.com/cloudyourcar/attentive
+//
+///* incoming socket data notification */
+//const char * const urc_01 PROGMEM = "+CIPRXGET: 1,";
+///* FTP state change notification */
+//const char * const urc_02 PROGMEM = "+FTPGET: 1,";
+///* PDP disconnected */
+//const char * const urc_03 PROGMEM = "+PDP: DEACT";
+///* PDP disconnected (for SAPBR apps) */
+//const char * const urc_04 PROGMEM = "+SAPBR 1: DEACT";
+///* AT+CLTS network name */
+//const char * const urc_05 PROGMEM = "*PSNWID:";
+///* AT+CLTS time */
+//const char * const urc_06 PROGMEM = "*PSUTTZ:";
+///* AT+CLTS timezone */
+//const char * const urc_07 PROGMEM = "+CTZV:";
+///* AT+CLTS dst information */
+//const char * const urc_08 PROGMEM = "DST:";
+///* AT+CLTS undocumented indicator */
+//const char * const urc_09 PROGMEM = "+CIEV:";
+///* Assorted crap on newer firmware releases. */
+//const char * const urc_10 PROGMEM = "RDY";
+//const char * const urc_11 PROGMEM = "+CPIN: READY";
+//const char * const urc_12 PROGMEM = "Call Ready";
+//const char * const urc_13 PROGMEM = "SMS Ready";
+//const char * const urc_14 PROGMEM = "NORMAL POWER DOWN";
+//const char * const urc_15 PROGMEM = "UNDER-VOLTAGE POWER DOWN";
+//const char * const urc_16 PROGMEM = "UNDER-VOLTAGE WARNNING";
+//const char * const urc_17 PROGMEM = "OVER-VOLTAGE POWER DOWN";
+//const char * const urc_18 PROGMEM = "OVER-VOLTAGE WARNNING";
+//
+//const char * const _urc_messages[] PROGMEM = {
+//        urc_01, urc_02, urc_03, urc_04, urc_06, urc_07, urc_08, urc_09, urc_10,
+//        urc_11, urc_12, urc_13, urc_14, urc_15, urc_16, urc_17, urc_18
+//};
 
 #endif //UBIRCH_SIM800_H
