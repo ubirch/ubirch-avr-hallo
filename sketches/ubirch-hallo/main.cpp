@@ -318,7 +318,7 @@ void record(const char *fname) {
 // send file to server (upload)
 bool sendFile(const char *fname, uint8_t retries) {
     uint16_t status;
-    uint32_t length;
+    unsigned long length;
 
     // generate the server url from base and imei
     char url[strlen_P(SERVER_URL) + 16];
@@ -339,7 +339,7 @@ bool sendFile(const char *fname, uint8_t retries) {
 // receive file from server (download)
 bool receiveFile(const char *fname) {
     uint16_t status;
-    uint32_t length;
+    unsigned long length;
 
     if (SD.exists(fname)) {
         PRINTLN("unplayed message exists");
@@ -389,12 +389,17 @@ void loop() {
                 set_color(STATE_C_MESSAGE);
                 state.pulse = 1;
             } else {
-                SD.remove(message_ogg);
+                SD.cacheClear();
+                if(SD.remove(message_ogg)) {
+                    PRINTLN("DELETED m.ogg");
+                } else {
+                    PRINTLN("COULD NOT DELETE m.ogg");
+                }
+
                 // preload recording plugin
                 vs1053.prepareRecordOgg((char *) "v44k1q05.img");
                 set_color(STATE_C_OFF);
                 state.message = 0;
-
             }
         } else {
             // if no message is available, record a new message
