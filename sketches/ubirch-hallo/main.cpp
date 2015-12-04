@@ -219,9 +219,10 @@ uint8_t play(const char *fname) {
     while (vs1053.playingMusic) {
         if (!(mpr_status() & _BV(0))) {
             unfinished = 1;
-            vs1053.stopPlaying();
         }
     }
+    vs1053.stopPlaying();
+
     // TODO hack to disable the timer interrupt
     TIMSK0 &= ~_BV(OCIE0A);
 
